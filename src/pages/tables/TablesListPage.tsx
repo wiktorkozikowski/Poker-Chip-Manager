@@ -1,28 +1,48 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { Menu, Plus, Users, ChevronRight } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { CodeInput } from '../../components/ui/CodeInput'
+import { useLocalTables } from '../../hooks/useLocalTables'
+import { useMyTablesData } from '../../hooks/useMyTablesData'
+import { useJoinTable } from '../../hooks/useJoinTable'
+import type { TableStatus } from '../../types/database'
 
-// Dane przykładowe do podglądu warstwy wizualnej — realna lista
-// (localStorage + Supabase) trafi tu w Fazie 1.
-const MOCK_TABLES = [
-  {
-    id: 'a7f9',
-    joinCode: 'A7F9',
-    isActive: true,
-    players: 5,
-    maxPlayers: 8,
-    smallBlind: 20,
-    bigBlind: 40,
-    createdAt: '21:15',
-  },
-]
+const STATUS_LABEL: Record<TableStatus, { text: string; color: 'green' | 'yellow' | 'neutral' }> = {
+  lobby: { text: 'LOBBY', color: 'yellow' },
+  active: { text: 'AKTYWNY', color: 'green' },
+  finished: { text: 'ZAKOŃCZONY', color: 'neutral' },
+}
+
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
+}
 
 export function TablesListPage() {
+  const navigate = useNavigate()
+  const { tables: localTables, addTable } = useLocalTables()
+  const tableIds = useMemo(() => localTables.map((t) => t.tableId), [localTables])
+  const { data: tables, loading } = useMyTablesData(tableIds)
+  const { joinTable, loading: joining, error: joinError } = useJoinTable()
+
   const [joinCode, setJoinCode] = useState('')
+  const [playerName, setPlayerName] = useState('')
+
+  async function handleJoin() {
+    const result = await joinTable(joinCode, playerName)
+    if (!result) return
+
+    addTable({
+      tableId: result.table.id,
+      joinCode: result.table.join_code,
+      playerId: result.player.id,
+      playerName: result.player.name,
+    })
+
+    navigate(`/tables/${result.table.id}/lobby`)
+  }
 
   return (
     <div className="p-4">
@@ -34,30 +54,39 @@ export function TablesListPage() {
         </Link>
       </header>
 
+      {!loading && tables.length === 0 && (
+        <p className="mb-4 text-center text-sm text-fg-muted">
+          Nie masz jeszcze żadnych stołów. Utwórz nowy albo dołącz kodem.
+        </p>
+      )}
+
       <div className="flex flex-col gap-3">
-        {MOCK_TABLES.map((table) => (
-          <Link key={table.id} to={`/tables/${table.id}/lobby`}>
-            <Card highlighted={table.isActive}>
-              <div className="flex items-center justify-between">
-                {table.isActive && <Badge color="green">●</Badge>}
-                <span className="ml-auto flex items-center gap-1 text-xs text-fg-muted">
-                  <Users size={14} />
-                  {table.players}/{table.maxPlayers}
-                </span>
-              </div>
-              <div className="mt-2 flex items-center justify-between">
-                <div>
-                  <p className="text-lg font-bold text-fg">STÓŁ #{table.joinCode}</p>
-                  <p className="mt-1 text-xs text-fg-muted">
-                    Blindy: {table.smallBlind}/{table.bigBlind}
-                  </p>
-                  <p className="text-xs text-fg-muted">Utworzony {table.createdAt}</p>
+        {tables.map((table) => {
+          const status = STATUS_LABEL[table.status]
+          return (
+            <Link key={table.id} to={`/tables/${table.id}/lobby`}>
+              <Card highlighted={table.status === 'active'}>
+                <div className="flex items-center justify-between">
+                  <Badge color={status.color}>●</Badge>
+                  <span className="ml-auto flex items-center gap-1 text-xs text-fg-muted">
+                    <Users size={14} />
+                    {table.playerCount}/{table.max_players}
+                  </span>
                 </div>
-                <ChevronRight size={20} className="text-fg-muted" />
-              </div>
-            </Card>
-          </Link>
-        ))}
+                <div className="mt-2 flex items-center justify-between">
+                  <div>
+                    <p className="text-lg font-bold text-fg">STÓŁ #{table.join_code}</p>
+                    <p className="mt-1 text-xs text-fg-muted">
+                      Blindy: {table.small_blind}/{table.big_blind}
+                    </p>
+                    <p className="text-xs text-fg-muted">Utworzony {formatTime(table.created_at)}</p>
+                  </div>
+                  <ChevronRight size={20} className="text-fg-muted" />
+                </div>
+              </Card>
+            </Link>
+          )
+        })}
       </div>
 
       <Link to="/tables/new" className="mt-4 block">
@@ -68,13 +97,28 @@ export function TablesListPage() {
 
       <div className="mt-6">
         <p className="mb-1 text-sm font-semibold text-fg">Dołącz do stołu</p>
-        <p className="mb-3 text-xs text-fg-muted">Wpisz kod stołu</p>
+        <p className="mb-3 text-xs text-fg-muted">Wpisz kod stołu i swoje imię</p>
+
+        <input
+          type="text"
+          value={playerName}
+          onChange={(e) => setPlayerName(e.target.value)}
+          placeholder="Twoje imię"
+          className="mb-3 w-full rounded-xl border border-border bg-surface-2 px-4 py-3 text-fg outline-none focus:border-brand-green"
+        />
+
         <div className="flex items-center justify-center gap-3">
           <CodeInput value={joinCode} onChange={setJoinCode} />
-          <Button color="primary" tone="solid" disabled={joinCode.length < 4}>
-            DOŁĄCZ
+          <Button
+            color="primary"
+            tone="solid"
+            disabled={joinCode.length < 4 || playerName.trim().length === 0 || joining}
+            onClick={handleJoin}
+          >
+            {joining ? '...' : 'DOŁĄCZ'}
           </Button>
         </div>
+        {joinError && <p className="mt-2 text-center text-sm text-brand-red">{joinError}</p>}
       </div>
     </div>
   )

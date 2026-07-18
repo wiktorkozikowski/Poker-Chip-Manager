@@ -74,14 +74,19 @@ alter table public.actions_log enable row level security;
 
 -- tables: odczyt publiczny (wymagany do wyszukania stolika po join_code przy
 -- dołączaniu); zapis tylko przez Edge Functions (service_role, który omija RLS).
+-- `drop policy if exists` przed `create policy` czyni migrację bezpieczną do
+-- wielokrotnego uruchomienia — Postgres nie ma `create policy if not exists`.
+drop policy if exists "tables_select_all" on public.tables;
 create policy "tables_select_all" on public.tables
   for select using (true);
 
 -- players: odczyt publiczny w ramach stolika.
+drop policy if exists "players_select_all" on public.players;
 create policy "players_select_all" on public.players
   for select using (true);
 
 -- actions_log: odczyt publiczny w ramach stolika (ekran Historia).
+drop policy if exists "actions_log_select_all" on public.actions_log;
 create policy "actions_log_select_all" on public.actions_log
   for select using (true);
 

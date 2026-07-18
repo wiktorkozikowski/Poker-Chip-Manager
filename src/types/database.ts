@@ -10,12 +10,19 @@ export type PlayerStatus = 'active' | 'folded' | 'all_in'
 
 export type ActionType = 'check' | 'call' | 'raise' | 'fold' | 'transfer' | 'round_win'
 
-export interface TableRow {
+// `type` (nie `interface`) celowo — interfejsy nie mają niejawnej sygnatury
+// indeksu, więc nie spełniają strukturalnie `Record<string, unknown>`
+// wymaganego przez generyczne typy supabase-js (Row/Insert/Update).
+export type TableRow = {
   id: string
   join_code: string
   status: TableStatus
   small_blind: number
   big_blind: number
+  /** Maksymalna liczba graczy — ustalana przez hosta przy tworzeniu stołu. */
+  max_players: number
+  /** Startowa wartość żetonów przydzielana każdemu dołączającemu graczowi. */
+  starting_chips: number
   pot: number
   current_bet: number
   dealer_position: number
@@ -24,7 +31,7 @@ export interface TableRow {
   created_at: string
 }
 
-export interface PlayerRow {
+export type PlayerRow = {
   id: string
   table_id: string
   name: string
@@ -37,7 +44,7 @@ export interface PlayerRow {
   is_big_blind: boolean
 }
 
-export interface ActionLogRow {
+export type ActionLogRow = {
   id: string
   table_id: string
   player_id: string
@@ -52,19 +59,27 @@ export interface Database {
     Tables: {
       tables: {
         Row: TableRow
-        Insert: Partial<TableRow> & Pick<TableRow, 'join_code' | 'small_blind' | 'big_blind'>
+        Insert: Partial<TableRow> &
+          Pick<TableRow, 'join_code' | 'small_blind' | 'big_blind' | 'max_players' | 'starting_chips'>
         Update: Partial<TableRow>
+        Relationships: []
       }
       players: {
         Row: PlayerRow
         Insert: Partial<PlayerRow> & Pick<PlayerRow, 'table_id' | 'name' | 'chip_total' | 'position'>
         Update: Partial<PlayerRow>
+        Relationships: []
       }
       actions_log: {
         Row: ActionLogRow
         Insert: Partial<ActionLogRow> & Pick<ActionLogRow, 'table_id' | 'player_id' | 'action_type'>
         Update: Partial<ActionLogRow>
+        Relationships: []
       }
     }
+    Views: Record<string, never>
+    Functions: Record<string, never>
+    Enums: Record<string, never>
+    CompositeTypes: Record<string, never>
   }
 }
