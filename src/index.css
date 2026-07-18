@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens — jedyne miejsce definiujące paletę. Komponenty w
+ * src/components/ui/ używają tylko tych nazw (bg-surface, text-fg-muted,
+ * text-brand-green...), więc restyle w przyszłości = zmiana wartości tutaj,
+ * bez ruszania logiki ani struktury komponentów.
+ */
+@theme {
+  --color-bg: #0a0b0d;
+  --color-surface: #17181c;
+  --color-surface-2: #1f2024;
+  --color-border: #2a2b30;
+  --color-fg: #f4f4f5;
+  --color-fg-muted: #8b8d94;
+  --color-brand-green: #22c55e;
+  --color-brand-yellow: #eab308;
+  --color-brand-red: #ef4444;
+  --color-brand-blue: #3b82f6;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-bg);
+  color: var(--color-fg);
+}
