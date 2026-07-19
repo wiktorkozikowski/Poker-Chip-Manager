@@ -1,8 +1,9 @@
-import { useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { Users, Crown } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams, Link } from 'react-router-dom'
+import { Users, Crown, ArrowLeftRight, Menu } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
+import { TableMenu } from '../../components/nav/TableMenu'
 import { useTableWithPlayers } from '../../hooks/useTableWithPlayers'
 import { useLocalTables } from '../../hooks/useLocalTables'
 import { useStartGame } from '../../hooks/useStartGame'
@@ -22,6 +23,7 @@ export function LobbyPage() {
   const { table, players, loading, error } = useTableWithPlayers(tableId)
   const { getEntry } = useLocalTables()
   const { startGame, loading: starting, error: startError } = useStartGame()
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const myEntry = tableId ? getEntry(tableId) : undefined
   const isHost = players.find((p) => p.position === 0)?.id === myEntry?.playerId
@@ -52,6 +54,14 @@ export function LobbyPage() {
   return (
     <div className="p-4">
       <header className="mb-6 text-center">
+        <div className="flex items-center justify-between">
+          <button type="button" onClick={() => setMenuOpen(true)} aria-label="Menu stołu">
+            <Menu size={18} className="text-fg-muted" />
+          </button>
+          <Link to={`/tables/${tableId}/game/transfer`} aria-label="Przekaż żetony">
+            <ArrowLeftRight size={16} className="text-fg-muted" />
+          </Link>
+        </div>
         <p className="text-xs tracking-widest text-fg-muted">STÓŁ</p>
         <h1 className="text-xl font-bold text-brand-green">#{table.join_code}</h1>
         <p className="mt-1 text-xs text-fg-muted">
@@ -87,6 +97,8 @@ export function LobbyPage() {
         {isHost ? (players.length < 2 ? 'Potrzeba minimum 2 graczy.' : ' ') : 'Czeka na start hosta.'}
       </p>
       {startError && <p className="mt-2 text-center text-sm text-brand-red">{startError}</p>}
+
+      <TableMenu tableId={table.id} open={menuOpen} onClose={() => setMenuOpen(false)} />
     </div>
   )
 }

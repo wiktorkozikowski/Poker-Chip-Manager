@@ -1,8 +1,10 @@
-import { useParams, useNavigate } from 'react-router-dom'
-import { Menu, Users } from 'lucide-react'
+import { useState } from 'react'
+import { useParams, useNavigate, Link } from 'react-router-dom'
+import { Menu, Users, ArrowLeftRight } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
+import { TableMenu } from '../../components/nav/TableMenu'
 import { useTableWithPlayers } from '../../hooks/useTableWithPlayers'
 import { useLocalTables } from '../../hooks/useLocalTables'
 import { usePlayerAction } from '../../hooks/usePlayerAction'
@@ -22,6 +24,7 @@ export function GamePage() {
   const { table, players, loading, error } = useTableWithPlayers(tableId)
   const { getEntry } = useLocalTables()
   const { sendAction, loading: acting, error: actionError } = usePlayerAction()
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const myEntry = tableId ? getEntry(tableId) : undefined
   const myPlayer = players.find((p) => p.id === myEntry?.playerId)
@@ -46,11 +49,18 @@ export function GamePage() {
   return (
     <div className="flex min-h-svh flex-col p-4">
       <header className="mb-6 flex items-center justify-between">
-        <Menu size={22} className="text-fg" />
+        <button type="button" onClick={() => setMenuOpen(true)} aria-label="Menu stołu">
+          <Menu size={22} className="text-fg" />
+        </button>
         <span className="text-sm font-semibold text-brand-green">STÓŁ #{table.join_code}</span>
-        <span className="flex items-center gap-1 text-xs text-fg-muted">
-          <Users size={14} />
-          {players.length}
+        <span className="flex items-center gap-3 text-xs text-fg-muted">
+          <span className="flex items-center gap-1">
+            <Users size={14} />
+            {players.length}
+          </span>
+          <Link to={`/tables/${tableId}/game/transfer`} aria-label="Przekaż żetony">
+            <ArrowLeftRight size={16} className="text-fg" />
+          </Link>
         </span>
       </header>
 
@@ -131,6 +141,8 @@ export function GamePage() {
           FOLD
         </Button>
       </div>
+
+      <TableMenu tableId={table.id} open={menuOpen} onClose={() => setMenuOpen(false)} />
     </div>
   )
 }

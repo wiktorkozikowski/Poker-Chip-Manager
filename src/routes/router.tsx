@@ -8,7 +8,8 @@ import { GamePage } from '../pages/game/GamePage'
 import { RaisePage } from '../pages/game/RaisePage'
 import { ResolveRoundPage } from '../pages/game/ResolveRoundPage'
 import { TransferChipsPage } from '../pages/game/TransferChipsPage'
-import { HistoryPage } from '../pages/history/HistoryPage'
+import { HistoryPage } from '../pages/game/HistoryPage'
+import { HistoryPlaceholderPage } from '../pages/history/HistoryPlaceholderPage'
 import { SettingsPage } from '../pages/settings/SettingsPage'
 
 export const router = createBrowserRouter([
@@ -20,7 +21,7 @@ export const router = createBrowserRouter([
       { path: 'tables', element: <TablesListPage /> },
       { path: 'tables/new', element: <CreateTablePage /> },
       { path: 'tables/:tableId/lobby', element: <LobbyPage /> },
-      { path: 'history', element: <HistoryPage /> },
+      { path: 'history', element: <HistoryPlaceholderPage /> },
       { path: 'settings', element: <SettingsPage /> },
     ],
   },
@@ -32,6 +33,7 @@ export const router = createBrowserRouter([
       { path: 'tables/:tableId/game/raise', element: <RaisePage /> },
       { path: 'tables/:tableId/game/resolve', element: <ResolveRoundPage /> },
       { path: 'tables/:tableId/game/transfer', element: <TransferChipsPage /> },
+      { path: 'tables/:tableId/history', element: <HistoryPage /> },
     ],
   },
 ])
