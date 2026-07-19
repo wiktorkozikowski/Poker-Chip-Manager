@@ -14,10 +14,15 @@ dist-ssr
 .env
 dev-dist
 
+# Supabase CLI local state
+supabase/.temp
+supabase/.branches
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
+.claude
 .DS_Store
 *.suo
 *.ntvs*

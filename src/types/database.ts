@@ -8,7 +8,7 @@ export type TableStatus = 'lobby' | 'active' | 'finished'
 
 export type PlayerStatus = 'active' | 'folded' | 'all_in'
 
-export type ActionType = 'check' | 'call' | 'raise' | 'fold' | 'transfer' | 'round_win'
+export type ActionType = 'check' | 'call' | 'raise' | 'fold' | 'blind' | 'transfer' | 'round_win'
 
 // `type` (nie `interface`) celowo — interfejsy nie mają niejawnej sygnatury
 // indeksu, więc nie spełniają strukturalnie `Record<string, unknown>`

@@ -1,9 +1,11 @@
-import { useParams } from 'react-router-dom'
+import { useEffect } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { Users, Crown } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { useTableWithPlayers } from '../../hooks/useTableWithPlayers'
 import { useLocalTables } from '../../hooks/useLocalTables'
+import { useStartGame } from '../../hooks/useStartGame'
 
 /**
  * Uwaga: brak szkicu graficznego dla tego ekranu — stylizacja utrzymana w
@@ -16,11 +18,21 @@ import { useLocalTables } from '../../hooks/useLocalTables'
  */
 export function LobbyPage() {
   const { tableId } = useParams()
+  const navigate = useNavigate()
   const { table, players, loading, error } = useTableWithPlayers(tableId)
   const { getEntry } = useLocalTables()
+  const { startGame, loading: starting, error: startError } = useStartGame()
 
   const myEntry = tableId ? getEntry(tableId) : undefined
   const isHost = players.find((p) => p.position === 0)?.id === myEntry?.playerId
+
+  // Realtime: gdy status stołu zmieni się na 'active' (host kliknął start —
+  // u siebie albo u kogoś innego), wszyscy gracze trafiają na ekran gry.
+  useEffect(() => {
+    if (table?.status === 'active' && tableId) {
+      navigate(`/tables/${tableId}/game`)
+    }
+  }, [table?.status, tableId, navigate])
 
   if (loading) {
     return <p className="p-4 text-center text-sm text-fg-muted">Wczytywanie...</p>
@@ -28,6 +40,13 @@ export function LobbyPage() {
 
   if (error || !table) {
     return <p className="p-4 text-center text-sm text-brand-red">{error ?? 'Nie znaleziono stołu.'}</p>
+  }
+
+  async function handleStart() {
+    if (!tableId || !myEntry) return
+    await startGame(tableId, myEntry.playerId)
+    // Sukces: realtime subskrypcja na `tables` sama zaktualizuje status i
+    // przekieruje przez useEffect powyżej — nie trzeba nawigować ręcznie.
   }
 
   return (
@@ -55,17 +74,19 @@ export function LobbyPage() {
         ))}
       </Card>
 
-      {/* onClick (ustawienie dealera/blindów przez Edge Function) trafi tu w Fazie 2. */}
-      <Button color="primary" tone="solid" fullWidth disabled>
-        START GRY
+      <Button
+        color="primary"
+        tone="solid"
+        fullWidth
+        disabled={!isHost || players.length < 2 || starting}
+        onClick={handleStart}
+      >
+        {starting ? 'STARTOWANIE...' : 'START GRY'}
       </Button>
       <p className="mt-2 text-center text-xs text-fg-muted">
-        {isHost
-          ? players.length < 2
-            ? 'Potrzeba minimum 2 graczy.'
-            : 'Uruchomienie gry — Faza 2.'
-          : 'Czeka na start hosta.'}
+        {isHost ? (players.length < 2 ? 'Potrzeba minimum 2 graczy.' : ' ') : 'Czeka na start hosta.'}
       </p>
+      {startError && <p className="mt-2 text-center text-sm text-brand-red">{startError}</p>}
     </div>
   )
 }

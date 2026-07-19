@@ -1,17 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import type { PlayerRow, TableRow } from '../types/database'
 
 /**
- * Jednorazowe pobranie stołu wraz z graczami. Realtime subskrypcja
- * (aktualizacja na żywo listy graczy w Lobby) to Faza 2 — na razie dane
- * odświeżają się tylko przy wejściu na ekran.
+ * Stan stołu + graczy, na żywo. Początkowy fetch, a potem realtime
+ * subskrypcja na `players`/`tables` (np. host klika "Start gry" i wszyscy
+ * pozostali gracze widzą to bez odświeżania strony).
  */
 export function useTableWithPlayers(tableId: string | undefined) {
   const [table, setTable] = useState<TableRow | null>(null)
   const [players, setPlayers] = useState<PlayerRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const reloadPlayers = useCallback(async (id: string) => {
+    const { data } = await supabase.from('players').select('*').eq('table_id', id).order('position')
+    setPlayers(data ?? [])
+  }, [])
 
   useEffect(() => {
     if (!tableId) return
@@ -39,10 +44,25 @@ export function useTableWithPlayers(tableId: string | undefined) {
 
     load()
 
+    const channel = supabase
+      .channel(`table-${id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'players', filter: `table_id=eq.${id}` },
+        () => reloadPlayers(id),
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'tables', filter: `id=eq.${id}` },
+        (payload) => setTable(payload.new as TableRow),
+      )
+      .subscribe()
+
     return () => {
       cancelled = true
+      supabase.removeChannel(channel)
     }
-  }, [tableId])
+  }, [tableId, reloadPlayers])
 
   return { table, players, loading, error }
 }
