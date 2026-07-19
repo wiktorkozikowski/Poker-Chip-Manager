@@ -87,9 +87,18 @@ export function GamePage() {
 
       <Card className="mb-4 text-center">
         {isShowdown ? (
-          <p className="text-sm text-fg">
-            Rozdanie zakończone — rozstrzygnięcie puli trafi tu w Fazie 4.
-          </p>
+          myPlayer?.is_dealer ? (
+            <Button
+              color="primary"
+              tone="solid"
+              fullWidth
+              onClick={() => navigate(`/tables/${tableId}/game/resolve`)}
+            >
+              ROZSTRZYGNIJ ROZDANIE
+            </Button>
+          ) : (
+            <p className="text-sm text-fg">Rozdanie zakończone — czeka na dealera.</p>
+          )
         ) : isMyTurn ? (
           <>
             <p className="text-sm text-fg">Twoja kolej</p>
