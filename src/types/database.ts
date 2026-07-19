@@ -8,6 +8,8 @@ export type TableStatus = 'lobby' | 'active' | 'finished'
 
 export type PlayerStatus = 'active' | 'folded' | 'all_in'
 
+export type BettingRound = 'preflop' | 'flop' | 'turn' | 'river' | 'showdown'
+
 export type ActionType = 'check' | 'call' | 'raise' | 'fold' | 'blind' | 'transfer' | 'round_win'
 
 // `type` (nie `interface`) celowo — interfejsy nie mają niejawnej sygnatury
@@ -28,6 +30,10 @@ export type TableRow = {
   dealer_position: number
   current_turn_position: number
   last_raiser_position: number | null
+  /** Ulica licytacji bieżącego rozdania — 'showdown' = czeka na Fazę 4. */
+  current_round: BettingRound
+  /** Ilu aktywnych graczy musi jeszcze zareagować, zanim runda się zamknie. */
+  players_to_act: number
   created_at: string
 }
 

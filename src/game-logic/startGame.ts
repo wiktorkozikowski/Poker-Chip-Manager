@@ -8,6 +8,8 @@ export interface StartGameResult {
   pot: number
   currentBet: number
   lastRaiserPosition: number
+  /** Wszyscy gracze muszą zareagować przynajmniej raz (BB ma "opcję"). */
+  playersToAct: number
   /** Kopie graczy z zaktualizowanym chipTotal/currentRoundBet/flagami. */
   players: GamePlayer[]
 }
@@ -72,6 +74,7 @@ export function computeStartGame(
     pot: smallBlind + bigBlind,
     currentBet: bigBlind,
     lastRaiserPosition: bigBlindPosition,
+    playersToAct: seats.length,
     players: updatedPlayers,
   }
 }

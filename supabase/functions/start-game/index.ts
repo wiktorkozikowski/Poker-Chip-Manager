@@ -85,6 +85,8 @@ Deno.serve(async (req) => {
         current_bet: result.currentBet,
         pot: result.pot,
         last_raiser_position: result.lastRaiserPosition,
+        current_round: 'preflop',
+        players_to_act: result.playersToAct,
       })
       .eq('id', tableId)
     if (tableUpdateError) return json({ error: tableUpdateError.message }, 500)

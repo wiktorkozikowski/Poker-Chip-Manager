@@ -8,6 +8,9 @@ export type PlayerStatus = 'active' | 'folded' | 'all_in'
 
 export type BettingAction = 'check' | 'call' | 'raise' | 'fold'
 
+/** 'showdown' = licytacja rivera zamknięta (albo fold-out) — czeka na Fazę 4. */
+export type BettingRound = 'preflop' | 'flop' | 'turn' | 'river' | 'showdown'
+
 export interface GamePlayer {
   id: string
   name: string
@@ -28,5 +31,8 @@ export interface GameTableState {
   dealerPosition: number
   currentTurnPosition: number
   lastRaiserPosition: number | null
+  currentRound: BettingRound
+  /** Ilu aktywnych graczy musi jeszcze zareagować, zanim runda się zamknie. */
+  playersToAct: number
   players: GamePlayer[]
 }

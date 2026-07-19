@@ -1,31 +1,55 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { Sheet } from '../../components/ui/Sheet'
 import { Stepper } from '../../components/ui/Stepper'
 import { AmountSlider } from '../../components/ui/AmountSlider'
 import { Button } from '../../components/ui/Button'
+import { useTableWithPlayers } from '../../hooks/useTableWithPlayers'
+import { useLocalTables } from '../../hooks/useLocalTables'
+import { usePlayerAction } from '../../hooks/usePlayerAction'
 
 const QUICK_AMOUNTS = [10, 20, 50, 100]
 
-// Wartości przykładowe do podglądu warstwy wizualnej — realne min/max
-// (na bazie current_bet i pot) trafią tu w Fazie 3.
-const MIN_RAISE = 80
-const MAX_RAISE = 220
-
 export function RaisePage() {
+  const { tableId } = useParams()
   const navigate = useNavigate()
-  const [amount, setAmount] = useState(180)
+  const { table, players, loading } = useTableWithPlayers(tableId)
+  const { getEntry } = useLocalTables()
+  const { sendAction, loading: sending, error } = usePlayerAction()
 
-  const clamp = (n: number) => Math.min(MAX_RAISE, Math.max(MIN_RAISE, n))
+  const myEntry = tableId ? getEntry(tableId) : undefined
+  const myPlayer = players.find((p) => p.id === myEntry?.playerId)
+
+  const maxRaise = myPlayer ? myPlayer.chip_total + myPlayer.current_round_bet : 0
+  const minRaise = table ? Math.min(table.current_bet + table.big_blind, maxRaise) : 0
+  const [amount, setAmount] = useState<number | null>(null)
+  const value = amount ?? minRaise
+
+  const clamp = (n: number) => Math.min(maxRaise, Math.max(minRaise, n))
+
+  if (loading) {
+    return <p className="p-4 text-center text-sm text-fg-muted">Wczytywanie...</p>
+  }
+  if (!table || !myPlayer || !tableId) {
+    return <p className="p-4 text-center text-sm text-brand-red">Nie można teraz podbić.</p>
+  }
+
+  async function handleConfirm() {
+    const ok = await sendAction(tableId!, myPlayer!.id, 'raise', value)
+    if (ok) navigate(`/tables/${tableId}/game`)
+  }
 
   return (
     <Sheet
       title="Raise"
       subtitle="Wybierz kwotę"
       footer={
-        <Button color="warning" tone="solid" fullWidth onClick={() => navigate(-1)}>
-          POTWIERDŹ RAISE {amount}
-        </Button>
+        <>
+          {error && <p className="mb-2 text-center text-sm text-brand-red">{error}</p>}
+          <Button color="warning" tone="solid" fullWidth disabled={sending} onClick={handleConfirm}>
+            {sending ? 'WYSYŁANIE...' : `POTWIERDŹ RAISE ${value}`}
+          </Button>
+        </>
       }
     >
       <div className="mb-8 grid grid-cols-4 gap-2">
@@ -33,7 +57,7 @@ export function RaisePage() {
           <button
             key={step}
             type="button"
-            onClick={() => setAmount(clamp(amount + step))}
+            onClick={() => setAmount(clamp(value + step))}
             className="rounded-xl bg-surface-2 py-2 text-sm font-semibold text-fg"
           >
             +{step}
@@ -41,15 +65,15 @@ export function RaisePage() {
         ))}
       </div>
 
-      <Stepper value={amount} onChange={(v) => setAmount(clamp(v))} min={MIN_RAISE} max={MAX_RAISE} />
+      <Stepper value={value} onChange={(v) => setAmount(clamp(v))} min={minRaise} max={maxRaise} />
 
       <div className="mt-4 flex justify-between text-xs text-fg-muted">
-        <span>Minimalna: {MIN_RAISE}</span>
-        <span>Do pota: {MAX_RAISE}</span>
+        <span>Minimalna: {minRaise}</span>
+        <span>Maksymalna (all-in): {maxRaise}</span>
       </div>
 
       <div className="mt-4">
-        <AmountSlider value={amount} min={MIN_RAISE} max={MAX_RAISE} onChange={setAmount} />
+        <AmountSlider value={value} min={minRaise} max={maxRaise} onChange={setAmount} />
       </div>
     </Sheet>
   )
