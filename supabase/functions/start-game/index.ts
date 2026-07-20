@@ -6,6 +6,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { computeStartGame } from '../../../src/game-logic/startGame.ts'
 import type { GamePlayer } from '../../../src/game-logic/types.ts'
+import { getCallerUserId } from '../_shared/auth.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -30,6 +31,9 @@ Deno.serve(async (req) => {
       return json({ error: 'Brak tableId lub playerId.' }, 400)
     }
 
+    const callerUserId = await getCallerUserId(req)
+    if (!callerUserId) return json({ error: 'Brak autoryzacji.' }, 401)
+
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
     const { data: table, error: tableError } = await supabase.from('tables').select('*').eq('id', tableId).single()
@@ -46,6 +50,9 @@ Deno.serve(async (req) => {
     const host = players.find((p) => p.position === 0)
     if (!host || host.id !== playerId) {
       return json({ error: 'Tylko host może rozpocząć grę.' }, 403)
+    }
+    if (host.user_id !== callerUserId) {
+      return json({ error: 'Nie możesz wykonać akcji za innego gracza.' }, 403)
     }
 
     const domainPlayers: GamePlayer[] = players.map((p) => ({

@@ -6,7 +6,7 @@ import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { TableMenu } from '../../components/nav/TableMenu'
 import { useTableWithPlayers } from '../../hooks/useTableWithPlayers'
-import { useLocalTables } from '../../hooks/useLocalTables'
+import { useAuth } from '../../hooks/AuthContext'
 import { usePlayerAction } from '../../hooks/usePlayerAction'
 import type { BettingRound } from '../../types/database'
 
@@ -22,12 +22,11 @@ export function GamePage() {
   const { tableId } = useParams()
   const navigate = useNavigate()
   const { table, players, loading, error } = useTableWithPlayers(tableId)
-  const { getEntry } = useLocalTables()
+  const { user } = useAuth()
   const { sendAction, loading: acting, error: actionError } = usePlayerAction()
   const [menuOpen, setMenuOpen] = useState(false)
 
-  const myEntry = tableId ? getEntry(tableId) : undefined
-  const myPlayer = players.find((p) => p.id === myEntry?.playerId)
+  const myPlayer = players.find((p) => p.user_id === user?.id)
 
   if (loading) {
     return <p className="p-4 text-center text-sm text-fg-muted">Wczytywanie...</p>

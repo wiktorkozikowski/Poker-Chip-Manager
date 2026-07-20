@@ -5,7 +5,7 @@ import { Stepper } from '../../components/ui/Stepper'
 import { AmountSlider } from '../../components/ui/AmountSlider'
 import { Button } from '../../components/ui/Button'
 import { useTableWithPlayers } from '../../hooks/useTableWithPlayers'
-import { useLocalTables } from '../../hooks/useLocalTables'
+import { useAuth } from '../../hooks/AuthContext'
 import { usePlayerAction } from '../../hooks/usePlayerAction'
 
 const QUICK_AMOUNTS = [10, 20, 50, 100]
@@ -14,11 +14,10 @@ export function RaisePage() {
   const { tableId } = useParams()
   const navigate = useNavigate()
   const { table, players, loading } = useTableWithPlayers(tableId)
-  const { getEntry } = useLocalTables()
+  const { user } = useAuth()
   const { sendAction, loading: sending, error } = usePlayerAction()
 
-  const myEntry = tableId ? getEntry(tableId) : undefined
-  const myPlayer = players.find((p) => p.id === myEntry?.playerId)
+  const myPlayer = players.find((p) => p.user_id === user?.id)
 
   const maxRaise = myPlayer ? myPlayer.chip_total + myPlayer.current_round_bet : 0
   const minRaise = table ? Math.min(table.current_bet + table.big_blind, maxRaise) : 0

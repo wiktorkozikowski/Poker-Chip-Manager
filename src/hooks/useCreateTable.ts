@@ -4,6 +4,7 @@ import { generateJoinCode } from '../utils/joinCode'
 import type { PlayerRow, TableRow } from '../types/database'
 
 interface CreateTableInput {
+  userId: string
   hostName: string
   maxPlayers: number
   smallBlind: number
@@ -66,6 +67,7 @@ export function useCreateTable() {
         .from('players')
         .insert({
           table_id: table.id,
+          user_id: input.userId,
           name: input.hostName,
           chip_total: input.startingChips,
           position: 0,

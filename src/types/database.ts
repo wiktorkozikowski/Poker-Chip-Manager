@@ -40,6 +40,8 @@ export type TableRow = {
 export type PlayerRow = {
   id: string
   table_id: string
+  /** Sesja Supabase Auth (pełne konto albo gość anonimowy) — kim jest ten gracz. */
+  user_id: string | null
   name: string
   chip_total: number
   position: number
@@ -72,7 +74,7 @@ export interface Database {
       }
       players: {
         Row: PlayerRow
-        Insert: Partial<PlayerRow> & Pick<PlayerRow, 'table_id' | 'name' | 'chip_total' | 'position'>
+        Insert: Partial<PlayerRow> & Pick<PlayerRow, 'table_id' | 'user_id' | 'name' | 'chip_total' | 'position'>
         Update: Partial<PlayerRow>
         Relationships: []
       }

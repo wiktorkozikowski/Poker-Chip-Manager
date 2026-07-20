@@ -4,18 +4,17 @@ import { Sheet } from '../../components/ui/Sheet'
 import { Stepper } from '../../components/ui/Stepper'
 import { Button } from '../../components/ui/Button'
 import { useTableWithPlayers } from '../../hooks/useTableWithPlayers'
-import { useLocalTables } from '../../hooks/useLocalTables'
+import { useAuth } from '../../hooks/AuthContext'
 import { useTransferChips } from '../../hooks/useTransferChips'
 
 export function TransferChipsPage() {
   const { tableId } = useParams()
   const navigate = useNavigate()
   const { players, loading } = useTableWithPlayers(tableId)
-  const { getEntry } = useLocalTables()
+  const { user } = useAuth()
   const { transferChips, loading: sending, error } = useTransferChips()
 
-  const myEntry = tableId ? getEntry(tableId) : undefined
-  const myPlayer = players.find((p) => p.id === myEntry?.playerId)
+  const myPlayer = players.find((p) => p.user_id === user?.id)
   const otherPlayers = players.filter((p) => p.id !== myPlayer?.id)
 
   const [targetId, setTargetId] = useState<string | null>(null)

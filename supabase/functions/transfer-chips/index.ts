@@ -3,6 +3,7 @@
 // dowolnym momencie (nie tylko w trakcie ręki). Klient nigdy nie zapisuje
 // chip_total bezpośrednio (RLS nie ma polityki UPDATE dla anon).
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { getCallerUserId } from '../_shared/auth.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -35,6 +36,9 @@ Deno.serve(async (req) => {
     if (fromPlayerId === toPlayerId) return json({ error: 'Nie można przekazać żetonów samemu sobie.' }, 400)
     if (amount <= 0) return json({ error: 'Kwota musi być dodatnia.' }, 400)
 
+    const callerUserId = await getCallerUserId(req)
+    if (!callerUserId) return json({ error: 'Brak autoryzacji.' }, 401)
+
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
     const { data: players, error: playersError } = await supabase
@@ -47,6 +51,7 @@ Deno.serve(async (req) => {
     const from = players.find((p) => p.id === fromPlayerId)
     const to = players.find((p) => p.id === toPlayerId)
     if (!from || !to) return json({ error: 'Gracz nie należy do tego stołu.' }, 404)
+    if (from.user_id !== callerUserId) return json({ error: 'Nie możesz wykonać akcji za innego gracza.' }, 403)
     if (from.chip_total < amount) return json({ error: 'Nie masz tylu żetonów.' }, 400)
 
     const { error: fromError } = await supabase

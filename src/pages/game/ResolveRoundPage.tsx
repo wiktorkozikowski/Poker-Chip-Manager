@@ -3,18 +3,17 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Sheet } from '../../components/ui/Sheet'
 import { Button } from '../../components/ui/Button'
 import { useTableWithPlayers } from '../../hooks/useTableWithPlayers'
-import { useLocalTables } from '../../hooks/useLocalTables'
+import { useAuth } from '../../hooks/AuthContext'
 import { useResolveRound } from '../../hooks/useResolveRound'
 
 export function ResolveRoundPage() {
   const { tableId } = useParams()
   const navigate = useNavigate()
   const { table, players, loading } = useTableWithPlayers(tableId)
-  const { getEntry } = useLocalTables()
+  const { user } = useAuth()
   const { resolveRound, loading: resolving, error } = useResolveRound()
 
-  const myEntry = tableId ? getEntry(tableId) : undefined
-  const myPlayer = players.find((p) => p.id === myEntry?.playerId)
+  const myPlayer = players.find((p) => p.user_id === user?.id)
   const eligible = players.filter((p) => p.status !== 'folded')
   const isFoldOut = eligible.length === 1
 

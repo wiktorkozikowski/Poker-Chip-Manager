@@ -5,7 +5,7 @@ import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { TableMenu } from '../../components/nav/TableMenu'
 import { useTableWithPlayers } from '../../hooks/useTableWithPlayers'
-import { useLocalTables } from '../../hooks/useLocalTables'
+import { useAuth } from '../../hooks/AuthContext'
 import { useStartGame } from '../../hooks/useStartGame'
 
 /**
@@ -21,12 +21,12 @@ export function LobbyPage() {
   const { tableId } = useParams()
   const navigate = useNavigate()
   const { table, players, loading, error } = useTableWithPlayers(tableId)
-  const { getEntry } = useLocalTables()
+  const { user } = useAuth()
   const { startGame, loading: starting, error: startError } = useStartGame()
   const [menuOpen, setMenuOpen] = useState(false)
 
-  const myEntry = tableId ? getEntry(tableId) : undefined
-  const isHost = players.find((p) => p.position === 0)?.id === myEntry?.playerId
+  const myPlayer = players.find((p) => p.user_id === user?.id)
+  const isHost = players.find((p) => p.position === 0)?.id === myPlayer?.id
 
   // Realtime: gdy status stołu zmieni się na 'active' (host kliknął start —
   // u siebie albo u kogoś innego), wszyscy gracze trafiają na ekran gry.
@@ -45,8 +45,8 @@ export function LobbyPage() {
   }
 
   async function handleStart() {
-    if (!tableId || !myEntry) return
-    await startGame(tableId, myEntry.playerId)
+    if (!tableId || !myPlayer) return
+    await startGame(tableId, myPlayer.id)
     // Sukces: realtime subskrypcja na `tables` sama zaktualizuje status i
     // przekieruje przez useEffect powyżej — nie trzeba nawigować ręcznie.
   }

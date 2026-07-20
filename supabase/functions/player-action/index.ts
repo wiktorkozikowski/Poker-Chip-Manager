@@ -6,6 +6,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { applyAction } from '../../../src/game-logic/bettingRound.ts'
 import type { BettingAction, GamePlayer, GameTableState } from '../../../src/game-logic/types.ts'
+import { getCallerUserId } from '../_shared/auth.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -36,6 +37,9 @@ Deno.serve(async (req) => {
       return json({ error: 'Brak tableId, playerId lub action.' }, 400)
     }
 
+    const callerUserId = await getCallerUserId(req)
+    if (!callerUserId) return json({ error: 'Brak autoryzacji.' }, 401)
+
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
     const { data: table, error: tableError } = await supabase.from('tables').select('*').eq('id', tableId).single()
@@ -48,6 +52,11 @@ Deno.serve(async (req) => {
       .eq('table_id', tableId)
       .order('position')
     if (playersError || !playerRows) return json({ error: 'Nie udało się pobrać graczy.' }, 500)
+
+    const actorRow = playerRows.find((p) => p.id === playerId)
+    if (!actorRow || actorRow.user_id !== callerUserId) {
+      return json({ error: 'Nie możesz wykonać akcji za innego gracza.' }, 403)
+    }
 
     const domainPlayers: GamePlayer[] = playerRows.map((p) => ({
       id: p.id,

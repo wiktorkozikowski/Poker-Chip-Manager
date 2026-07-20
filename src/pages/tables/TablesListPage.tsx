@@ -1,13 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Menu, Plus, Users, ChevronRight } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { CodeInput } from '../../components/ui/CodeInput'
-import { useLocalTables } from '../../hooks/useLocalTables'
 import { useMyTablesData } from '../../hooks/useMyTablesData'
 import { useJoinTable } from '../../hooks/useJoinTable'
+import { useAuth } from '../../hooks/AuthContext'
 import type { TableStatus } from '../../types/database'
 
 const STATUS_LABEL: Record<TableStatus, { text: string; color: 'green' | 'yellow' | 'neutral' }> = {
@@ -22,25 +22,21 @@ function formatTime(iso: string) {
 
 export function TablesListPage() {
   const navigate = useNavigate()
-  const { tables: localTables, addTable } = useLocalTables()
-  const tableIds = useMemo(() => localTables.map((t) => t.tableId), [localTables])
-  const { data: tables, loading } = useMyTablesData(tableIds)
+  const { user, displayName } = useAuth()
+  const { data: tables, loading } = useMyTablesData(user?.id)
   const { joinTable, loading: joining, error: joinError } = useJoinTable()
 
   const [joinCode, setJoinCode] = useState('')
-  const [playerName, setPlayerName] = useState('')
+  const [playerName, setPlayerName] = useState(displayName)
+
+  useEffect(() => {
+    setPlayerName(displayName)
+  }, [displayName])
 
   async function handleJoin() {
-    const result = await joinTable(joinCode, playerName)
+    if (!user) return
+    const result = await joinTable(joinCode, playerName, user.id)
     if (!result) return
-
-    addTable({
-      tableId: result.table.id,
-      joinCode: result.table.join_code,
-      playerId: result.player.id,
-      playerName: result.player.name,
-    })
-
     navigate(`/tables/${result.table.id}/lobby`)
   }
 

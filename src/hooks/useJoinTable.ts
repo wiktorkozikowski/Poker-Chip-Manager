@@ -16,7 +16,7 @@ export function useJoinTable() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function joinTable(joinCode: string, playerName: string): Promise<JoinTableResult | null> {
+  async function joinTable(joinCode: string, playerName: string, userId: string): Promise<JoinTableResult | null> {
     setLoading(true)
     setError(null)
 
@@ -44,6 +44,7 @@ export function useJoinTable() {
         .from('players')
         .insert({
           table_id: table.id,
+          user_id: userId,
           name: playerName,
           chip_total: table.starting_chips,
           position: count ?? 0,

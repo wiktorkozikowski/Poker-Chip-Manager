@@ -3,8 +3,9 @@ import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ChevronLeft } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
+import { NumberInput } from '../../components/ui/NumberInput'
 import { useCreateTable } from '../../hooks/useCreateTable'
-import { useLocalTables } from '../../hooks/useLocalTables'
+import { useAuth } from '../../hooks/AuthContext'
 
 /**
  * Uwaga: brak szkicu graficznego dla tego ekranu — stylizacja utrzymana w
@@ -13,9 +14,9 @@ import { useLocalTables } from '../../hooks/useLocalTables'
 export function CreateTablePage() {
   const navigate = useNavigate()
   const { createTable, loading, error } = useCreateTable()
-  const { addTable } = useLocalTables()
+  const { user, displayName } = useAuth()
 
-  const [hostName, setHostName] = useState('')
+  const [hostName, setHostName] = useState(displayName)
   const [maxPlayers, setMaxPlayers] = useState(6)
   const [smallBlind, setSmallBlind] = useState(20)
   const [bigBlind, setBigBlind] = useState(40)
@@ -23,16 +24,10 @@ export function CreateTablePage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    if (!user) return
 
-    const result = await createTable({ hostName, maxPlayers, smallBlind, bigBlind, startingChips })
+    const result = await createTable({ userId: user.id, hostName, maxPlayers, smallBlind, bigBlind, startingChips })
     if (!result) return
-
-    addTable({
-      tableId: result.table.id,
-      joinCode: result.table.join_code,
-      playerId: result.hostPlayer.id,
-      playerName: result.hostPlayer.name,
-    })
 
     navigate(`/tables/${result.table.id}/lobby`)
   }
@@ -61,12 +56,11 @@ export function CreateTablePage() {
 
         <label className="flex flex-col gap-1.5">
           <span className="text-sm text-fg-muted">Liczba graczy</span>
-          <input
-            type="number"
+          <NumberInput
             min={2}
             max={10}
             value={maxPlayers}
-            onChange={(e) => setMaxPlayers(Number(e.target.value))}
+            onChange={setMaxPlayers}
             className="rounded-xl border border-border bg-surface-2 px-4 py-3 text-fg outline-none focus:border-brand-green"
           />
         </label>
@@ -74,21 +68,19 @@ export function CreateTablePage() {
         <div className="flex gap-3">
           <label className="flex flex-1 flex-col gap-1.5">
             <span className="text-sm text-fg-muted">Small blind</span>
-            <input
-              type="number"
+            <NumberInput
               min={1}
               value={smallBlind}
-              onChange={(e) => setSmallBlind(Number(e.target.value))}
+              onChange={setSmallBlind}
               className="rounded-xl border border-border bg-surface-2 px-4 py-3 text-fg outline-none focus:border-brand-green"
             />
           </label>
           <label className="flex flex-1 flex-col gap-1.5">
             <span className="text-sm text-fg-muted">Big blind</span>
-            <input
-              type="number"
+            <NumberInput
               min={1}
               value={bigBlind}
-              onChange={(e) => setBigBlind(Number(e.target.value))}
+              onChange={setBigBlind}
               className="rounded-xl border border-border bg-surface-2 px-4 py-3 text-fg outline-none focus:border-brand-green"
             />
           </label>
@@ -96,11 +88,10 @@ export function CreateTablePage() {
 
         <label className="flex flex-col gap-1.5">
           <span className="text-sm text-fg-muted">Startowa wartość żetonów</span>
-          <input
-            type="number"
+          <NumberInput
             min={1}
             value={startingChips}
-            onChange={(e) => setStartingChips(Number(e.target.value))}
+            onChange={setStartingChips}
             className="rounded-xl border border-border bg-surface-2 px-4 py-3 text-fg outline-none focus:border-brand-green"
           />
         </label>

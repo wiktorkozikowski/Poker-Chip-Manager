@@ -7,24 +7,37 @@ export interface MyTableSummary extends TableRow {
 }
 
 /**
- * Dociąga ze Supabase aktualny stan stołów zapamiętanych lokalnie
- * (localStorage — patrz useLocalTables) wraz z liczbą dołączonych graczy.
- * Bez realtime — odświeżenie live listy w Lobby to Faza 2.
+ * Stoły, do których należy zalogowany użytkownik (user_id w players) —
+ * "Moje Stoły" to teraz prawdziwe zapytanie do bazy, nie lista z localStorage.
+ * Bez realtime — wystarczy świeże zapytanie przy wejściu na ekran.
  */
-export function useMyTablesData(tableIds: string[]) {
+export function useMyTablesData(userId: string | undefined) {
   const [data, setData] = useState<MyTableSummary[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (tableIds.length === 0) {
+    if (!userId) {
       setData([])
+      setLoading(false)
       return
     }
 
+    const id = userId
     let cancelled = false
     setLoading(true)
 
     async function load() {
+      const { data: myRows } = await supabase.from('players').select('table_id').eq('user_id', id)
+      const tableIds = [...new Set((myRows ?? []).map((r) => r.table_id))]
+
+      if (tableIds.length === 0) {
+        if (!cancelled) {
+          setData([])
+          setLoading(false)
+        }
+        return
+      }
+
       const [{ data: tables }, { data: players }] = await Promise.all([
         supabase.from('tables').select('*').in('id', tableIds),
         supabase.from('players').select('id, table_id').in('table_id', tableIds),
@@ -46,7 +59,7 @@ export function useMyTablesData(tableIds: string[]) {
     return () => {
       cancelled = true
     }
-  }, [tableIds.join(',')])
+  }, [userId])
 
   return { data, loading }
 }
