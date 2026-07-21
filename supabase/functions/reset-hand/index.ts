@@ -1,10 +1,11 @@
-// Edge Function: start-game
-// Waliduje i wykonuje start rozgrywki (ustawienie dealera/blindów) —
-// jedyna droga, którą stolik przechodzi z 'lobby' do 'active'. Klient nigdy
-// nie zapisuje tego bezpośrednio (RLS nie ma polityki UPDATE na `tables`/
-// `players` dla anon), więc ta walidacja nie da się obejść z devtools.
+// Edge Function: reset-hand
+// Host anuluje bieżące rozdanie w trakcie gry — każdy obecny gracz odzyskuje
+// dokładnie to, co wpłacił w tej ręce (total_invested), pot wraca do 0, a
+// nowa ręka startuje od razu przy TYM SAMYM dealerze (poprzednia i tak nie
+// zakończyła się normalnie, więc rotacja nie ma sensu — patrz
+// computeResetHand w src/game-logic/startGame.ts).
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-import { computeStartGame } from '../../../src/game-logic/startGame.ts'
+import { computeResetHand } from '../../../src/game-logic/startGame.ts'
 import type { GamePlayer } from '../../../src/game-logic/types.ts'
 import { getCallerUserId } from '../_shared/auth.ts'
 
@@ -26,9 +27,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { tableId, playerId } = await req.json()
-    if (!tableId || !playerId) {
-      return json({ error: 'Brak tableId lub playerId.' }, 400)
+    const { tableId, hostPlayerId } = (await req.json()) as { tableId?: string; hostPlayerId?: string }
+    if (!tableId || !hostPlayerId) {
+      return json({ error: 'Brak tableId lub hostPlayerId.' }, 400)
     }
 
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
@@ -36,7 +37,7 @@ Deno.serve(async (req) => {
     const [
       callerUserId,
       { data: table, error: tableError },
-      { data: players, error: playersError },
+      { data: playerRows, error: playersError },
     ] = await Promise.all([
       getCallerUserId(req),
       supabase.from('tables').select('*').eq('id', tableId).single(),
@@ -44,32 +45,40 @@ Deno.serve(async (req) => {
     ])
     if (!callerUserId) return json({ error: 'Brak autoryzacji.' }, 401)
     if (tableError || !table) return json({ error: 'Nie znaleziono stołu.' }, 404)
-    if (table.status !== 'lobby') return json({ error: 'Gra już wystartowała.' }, 409)
-    if (playersError || !players) return json({ error: 'Nie udało się pobrać graczy.' }, 500)
+    if (table.status !== 'active') return json({ error: 'Stolik nie jest w trakcie gry.' }, 409)
+    if (playersError || !playerRows) return json({ error: 'Nie udało się pobrać graczy.' }, 500)
 
-    const host = players.find((p) => p.position === 0)
-    if (!host || host.id !== playerId) {
-      return json({ error: 'Tylko host może rozpocząć grę.' }, 403)
+    const host = playerRows.find((p) => p.position === 0)
+    if (!host || host.id !== hostPlayerId) {
+      return json({ error: 'Tylko host może zresetować rozdanie.' }, 403)
     }
     if (host.user_id !== callerUserId) {
       return json({ error: 'Nie możesz wykonać akcji za innego gracza.' }, 403)
     }
 
-    const domainPlayers: GamePlayer[] = players.map((p) => ({
+    // Zwrot postawionej kasy: każdy dostaje z powrotem dokładnie to, co sam
+    // wpłacił w tej ręce (total_invested obejmuje blindy + wszystkie
+    // call/raise na wszystkich dotychczasowych ulicach tego rozdania).
+    const refundedPlayers: GamePlayer[] = playerRows.map((p) => ({
       id: p.id,
       name: p.name,
-      chipTotal: p.chip_total,
+      chipTotal: p.chip_total + p.total_invested,
       position: p.position,
-      status: p.status,
-      currentRoundBet: p.current_round_bet,
-      totalInvested: p.total_invested,
+      status: 'active',
+      currentRoundBet: 0,
+      totalInvested: 0,
       isDealer: p.is_dealer,
       isSmallBlind: p.is_small_blind,
       isBigBlind: p.is_big_blind,
-      lastAction: p.last_action,
+      lastAction: null,
     }))
 
-    const result = computeStartGame(domainPlayers, table.small_blind, table.big_blind, null)
+    let result
+    try {
+      result = computeResetHand(refundedPlayers, table.small_blind, table.big_blind, table.dealer_position)
+    } catch (err) {
+      return json({ error: err instanceof Error ? err.message : 'Nie udało się zresetować rozdania.' }, 400)
+    }
 
     const playerUpdates = result.players.map((p) =>
       supabase
@@ -78,6 +87,7 @@ Deno.serve(async (req) => {
           chip_total: p.chipTotal,
           current_round_bet: p.currentRoundBet,
           total_invested: p.totalInvested,
+          status: p.status,
           is_dealer: p.isDealer,
           is_small_blind: p.isSmallBlind,
           is_big_blind: p.isBigBlind,
@@ -89,11 +99,10 @@ Deno.serve(async (req) => {
     const tableUpdate = supabase
       .from('tables')
       .update({
-        status: 'active',
+        pot: result.pot,
+        current_bet: result.currentBet,
         dealer_position: result.dealerPosition,
         current_turn_position: result.currentTurnPosition,
-        current_bet: result.currentBet,
-        pot: result.pot,
         last_raiser_position: result.lastRaiserPosition,
         current_round: 'preflop',
         players_to_act: result.playersToAct,
@@ -101,12 +110,9 @@ Deno.serve(async (req) => {
       })
       .eq('id', tableId)
 
-    const sbPlayer = result.players.find((p) => p.isSmallBlind)!
-    const bbPlayer = result.players.find((p) => p.isBigBlind)!
-    const logInsert = supabase.from('actions_log').insert([
-      { table_id: tableId, player_id: sbPlayer.id, action_type: 'blind', amount: table.small_blind },
-      { table_id: tableId, player_id: bbPlayer.id, action_type: 'blind', amount: table.big_blind },
-    ])
+    const logInsert = supabase
+      .from('actions_log')
+      .insert({ table_id: tableId, player_id: host.id, action_type: 'reset_hand', amount: table.pot })
 
     const writeResults = await Promise.all([...playerUpdates, tableUpdate, logInsert])
     const writeError = writeResults.find((r) => r.error)?.error

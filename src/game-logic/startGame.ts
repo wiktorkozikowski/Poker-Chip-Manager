@@ -15,19 +15,16 @@ export interface StartGameResult {
 }
 
 /**
- * Wyznacza dealera, small/big blind i pierwszego gracza do akcji na starcie
- * ręki. Czysta funkcja — używana przez Edge Function `start-game` (Deno
- * importuje ten plik bezpośrednio, patrz supabase/functions/start-game).
- *
- * `previousDealerPosition`: null przy pierwszym rozdaniu na stole (dealer =
- * gracz na position 0, czyli host). W kolejnych rozdaniach (Faza 4) podać
- * dealer_position z poprzedniej rundy — funkcja przesunie go o jedno miejsce.
+ * Rozdaje świeżą rękę przy KONKRETNYM, ustalonym z góry dealerze (bez
+ * rotacji) — wspólna logika dla `computeStartGame` (który dealera dopiero
+ * wyznacza, patrz niżej) i `computeResetHand` (który świadomie zostawia
+ * dealera bez zmian, bo poprzednia ręka nie zakończyła się normalnie).
  */
-export function computeStartGame(
+function dealHandAtDealer(
   players: GamePlayer[],
   smallBlind: number,
   bigBlind: number,
-  previousDealerPosition: number | null,
+  dealerPosition: number,
 ): StartGameResult {
   if (players.length < 2) {
     throw new Error('Potrzeba minimum 2 graczy, żeby rozpocząć grę.')
@@ -40,11 +37,6 @@ export function computeStartGame(
     const idx = positions.indexOf(from)
     return positions[(idx + 1) % positions.length]
   }
-
-  const dealerPosition =
-    previousDealerPosition !== null && positions.includes(previousDealerPosition)
-      ? nextPosition(previousDealerPosition)
-      : positions[0]
 
   // Heads-up (2 graczy): dealer jest jednocześnie small blindem — standardowa
   // konwencja pokerowa, inaczej niż przy 3+ graczach.
@@ -81,4 +73,45 @@ export function computeStartGame(
     playersToAct: seats.length,
     players: updatedPlayers,
   }
+}
+
+/**
+ * Wyznacza dealera, small/big blind i pierwszego gracza do akcji na starcie
+ * ręki. Czysta funkcja — używana przez Edge Function `start-game` (Deno
+ * importuje ten plik bezpośrednio, patrz supabase/functions/start-game).
+ *
+ * `previousDealerPosition`: null przy pierwszym rozdaniu na stole (dealer =
+ * gracz na position 0, czyli host). W kolejnych rozdaniach (Faza 4) podać
+ * dealer_position z poprzedniej rundy — funkcja przesunie go o jedno miejsce.
+ */
+export function computeStartGame(
+  players: GamePlayer[],
+  smallBlind: number,
+  bigBlind: number,
+  previousDealerPosition: number | null,
+): StartGameResult {
+  const seats = [...players].sort((a, b) => a.position - b.position)
+  const positions = seats.map((p) => p.position)
+  const idx = previousDealerPosition !== null ? positions.indexOf(previousDealerPosition) : -1
+
+  const dealerPosition = idx !== -1 ? positions[(idx + 1) % positions.length] : positions[0]
+
+  return dealHandAtDealer(players, smallBlind, bigBlind, dealerPosition)
+}
+
+/**
+ * Rozdaje rękę od nowa przy TYM SAMYM dealerze co poprzednio (bez rotacji)
+ * — używane przez Edge Function `reset-hand`, gdy host anuluje bieżące
+ * rozdanie: skoro ręka nie zakończyła się normalnie (przez showdown), dealer
+ * się nie przesuwa. Wywołujący musi wcześniej zwrócić graczom ich
+ * `totalInvested` z anulowanej ręki (do `chipTotal`) — ta funkcja tylko
+ * rozdaje nową rękę na już-zwróconych stosach.
+ */
+export function computeResetHand(
+  players: GamePlayer[],
+  smallBlind: number,
+  bigBlind: number,
+  dealerPosition: number,
+): StartGameResult {
+  return dealHandAtDealer(players, smallBlind, bigBlind, dealerPosition)
 }

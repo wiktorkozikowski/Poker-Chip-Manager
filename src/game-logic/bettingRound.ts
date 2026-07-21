@@ -170,3 +170,41 @@ export function applyAction(
 
   return { ...nextState, currentTurnPosition: nextActivePosition(players, actor.position) }
 }
+
+/**
+ * Wymusza wyjście gracza z bieżącej ręki (opuścił stół albo został usunięty
+ * przez hosta) — mirror zwykłego folda (status→'folded', pot/stawki
+ * nietknięte, bo pieniądze już są w puli z poprzedniego call/raise), ale w
+ * przeciwieństwie do applyAction('fold') może dotyczyć DOWOLNEGO gracza, nie
+ * tylko tego, kto akurat ma ruch — stąd dodatkowa obsługa: dekrementujemy
+ * playersToAct tylko jeśli jeszcze nie zagrał w tej ulicy, a jeśli to on
+ * akurat miał ruch, trzeba przesunąć kolejkę (inaczej gra się zawiesza, bo
+ * spasowany gracz nigdy nie przejdzie bramki applyAction).
+ */
+export function removePlayerFromHand(state: GameTableState, playerId: string): GameTableState {
+  const player = state.players.find((p) => p.id === playerId)
+  if (!player) throw new Error('Gracz nie należy do tego stołu.')
+  if (player.status === 'folded') return state
+
+  const players = updatePlayer(state.players, player.id, { status: 'folded', lastAction: 'fold' })
+
+  let playersToAct = state.playersToAct
+  if (player.status === 'active' && player.lastAction === null) {
+    playersToAct -= 1
+  }
+
+  const nextState: GameTableState = { ...state, players, playersToAct }
+
+  const inHand = players.filter((p) => p.status !== 'folded')
+  if (inHand.length === 1) {
+    return { ...nextState, currentRound: 'showdown', playersToAct: 0 }
+  }
+
+  if (player.position === state.currentTurnPosition) {
+    if (playersToAct <= 0) return startNextStreet(nextState)
+    return { ...nextState, currentTurnPosition: nextActivePosition(players, player.position) }
+  }
+
+  if (playersToAct <= 0) return startNextStreet(nextState)
+  return nextState
+}

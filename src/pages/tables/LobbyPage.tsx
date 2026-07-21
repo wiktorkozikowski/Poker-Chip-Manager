@@ -25,8 +25,9 @@ export function LobbyPage() {
   const { startGame, loading: starting, error: startError } = useStartGame()
   const [menuOpen, setMenuOpen] = useState(false)
 
-  const myPlayer = players.find((p) => p.user_id === user?.id)
-  const isHost = players.find((p) => p.position === 0)?.id === myPlayer?.id
+  const presentPlayers = players.filter((p) => !p.left_at)
+  const myPlayer = presentPlayers.find((p) => p.user_id === user?.id)
+  const isHost = presentPlayers.find((p) => p.position === 0)?.id === myPlayer?.id
 
   // Realtime: gdy status stołu zmieni się na 'active' (host kliknął start —
   // u siebie albo u kogoś innego), wszyscy gracze trafiają na ekran gry.
@@ -35,6 +36,21 @@ export function LobbyPage() {
       navigate(`/tables/${tableId}/game`)
     }
   }, [table?.status, tableId, navigate])
+
+  // Host zamknął stół — wszyscy podłączeni klienci wracają na listę stołów.
+  useEffect(() => {
+    if (table?.status === 'finished') {
+      navigate('/tables')
+    }
+  }, [table?.status, navigate])
+
+  // Zostałem usunięty przez hosta (dowiaduję się przez Realtime, nie przez
+  // własne kliknięcie) — gracze są już załadowani, ale mnie wśród nich nie ma.
+  useEffect(() => {
+    if (!loading && table && !myPlayer) {
+      navigate('/tables')
+    }
+  }, [loading, table, myPlayer, navigate])
 
   if (loading) {
     return <p className="p-4 text-center text-sm text-fg-muted">Wczytywanie...</p>
@@ -71,14 +87,14 @@ export function LobbyPage() {
       </header>
 
       <Card className="mb-6 flex flex-col divide-y divide-border p-0">
-        {players.map((player) => (
+        {presentPlayers.map((player) => (
           <div key={player.id} className="flex items-center gap-2 px-4 py-3">
             <Users size={16} className="text-fg-muted" />
             <span className="text-sm text-fg">{player.name}</span>
             {player.position === 0 && <Crown size={14} className="text-brand-yellow" />}
           </div>
         ))}
-        {Array.from({ length: table.max_players - players.length }).map((_, i) => (
+        {Array.from({ length: table.max_players - presentPlayers.length }).map((_, i) => (
           <div key={`empty-${i}`} className="px-4 py-3 text-sm text-fg-muted">
             Wolne miejsce
           </div>
@@ -89,17 +105,23 @@ export function LobbyPage() {
         color="primary"
         tone="solid"
         fullWidth
-        disabled={!isHost || players.length < 2 || starting}
+        disabled={!isHost || presentPlayers.length < 2 || starting}
         onClick={handleStart}
       >
         {starting ? 'STARTOWANIE...' : 'START GRY'}
       </Button>
       <p className="mt-2 text-center text-xs text-fg-muted">
-        {isHost ? (players.length < 2 ? 'Potrzeba minimum 2 graczy.' : ' ') : 'Czeka na start hosta.'}
+        {isHost ? (presentPlayers.length < 2 ? 'Potrzeba minimum 2 graczy.' : ' ') : 'Czeka na start hosta.'}
       </p>
       {startError && <p className="mt-2 text-center text-sm text-brand-red">{startError}</p>}
 
-      <TableMenu tableId={table.id} open={menuOpen} onClose={() => setMenuOpen(false)} />
+      <TableMenu
+        tableId={table.id}
+        isHost={isHost}
+        canResetHand={isHost && table.status === 'active'}
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+      />
     </div>
   )
 }

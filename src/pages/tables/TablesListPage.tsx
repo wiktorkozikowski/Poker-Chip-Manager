@@ -5,6 +5,7 @@ import { Card } from '../../components/ui/Card'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { CodeInput } from '../../components/ui/CodeInput'
+import { SwipeToDelete } from '../../components/ui/SwipeToDelete'
 import { useMyTablesData } from '../../hooks/useMyTablesData'
 import { useJoinTable } from '../../hooks/useJoinTable'
 import { useAuth } from '../../hooks/AuthContext'
@@ -60,8 +61,11 @@ export function TablesListPage() {
         {tables.map((table) => {
           const status = STATUS_LABEL[table.status]
           return (
-            <Link key={table.id} to={`/tables/${table.id}/lobby`}>
-              <Card highlighted={table.status === 'active'}>
+            <SwipeToDelete
+              key={table.id}
+              onDelete={() => navigate(`/tables/${table.id}/${table.isHost ? 'close' : 'leave'}`)}
+            >
+              <Card highlighted={table.status === 'active'} onClick={() => navigate(`/tables/${table.id}/lobby`)}>
                 <div className="flex items-center justify-between">
                   <Badge color={status.color}>●</Badge>
                   <span className="ml-auto flex items-center gap-1 text-xs text-fg-muted">
@@ -80,7 +84,7 @@ export function TablesListPage() {
                   <ChevronRight size={20} className="text-fg-muted" />
                 </div>
               </Card>
-            </Link>
+            </SwipeToDelete>
           )
         })}
       </div>

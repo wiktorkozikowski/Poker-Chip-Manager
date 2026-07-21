@@ -7,6 +7,10 @@ import { NumberInput } from '../../components/ui/NumberInput'
 import { useCreateTable } from '../../hooks/useCreateTable'
 import { useAuth } from '../../hooks/AuthContext'
 
+// Stół zawsze przyjmuje do tylu graczy — host nie deklaruje liczby z góry,
+// dołącza tylu, ilu faktycznie przyjdzie (do tego limitu).
+const MAX_PLAYERS_PER_TABLE = 10
+
 /**
  * Uwaga: brak szkicu graficznego dla tego ekranu — stylizacja utrzymana w
  * spójności z resztą dark theme, do doprecyzowania gdy pojawi się mockup.
@@ -17,7 +21,6 @@ export function CreateTablePage() {
   const { user, displayName } = useAuth()
 
   const [hostName, setHostName] = useState(displayName)
-  const [maxPlayers, setMaxPlayers] = useState(6)
   const [smallBlind, setSmallBlind] = useState(20)
   const [bigBlind, setBigBlind] = useState(40)
   const [startingChips, setStartingChips] = useState(1500)
@@ -26,7 +29,16 @@ export function CreateTablePage() {
     e.preventDefault()
     if (!user) return
 
-    const result = await createTable({ userId: user.id, hostName, maxPlayers, smallBlind, bigBlind, startingChips })
+    // Bez deklarowania liczby graczy z góry — stół zawsze przyjmuje do
+    // MAX_PLAYERS_PER_TABLE (limit egzekwowany też po stronie RLS).
+    const result = await createTable({
+      userId: user.id,
+      hostName,
+      maxPlayers: MAX_PLAYERS_PER_TABLE,
+      smallBlind,
+      bigBlind,
+      startingChips,
+    })
     if (!result) return
 
     navigate(`/tables/${result.table.id}/lobby`)
@@ -50,17 +62,6 @@ export function CreateTablePage() {
             value={hostName}
             onChange={(e) => setHostName(e.target.value)}
             placeholder="np. Adam"
-            className="rounded-xl border border-border bg-surface-2 px-4 py-3 text-fg outline-none focus:border-brand-green"
-          />
-        </label>
-
-        <label className="flex flex-col gap-1.5">
-          <span className="text-sm text-fg-muted">Liczba graczy</span>
-          <NumberInput
-            min={2}
-            max={10}
-            value={maxPlayers}
-            onChange={setMaxPlayers}
             className="rounded-xl border border-border bg-surface-2 px-4 py-3 text-fg outline-none focus:border-brand-green"
           />
         </label>

@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
     ] = await Promise.all([
       getCallerUserId(req),
       supabase.from('tables').select('*').eq('id', tableId).single(),
-      supabase.from('players').select('*').eq('table_id', tableId).order('position'),
+      supabase.from('players').select('*').eq('table_id', tableId).is('left_at', null).order('position'),
     ])
     if (!callerUserId) return json({ error: 'Brak autoryzacji.' }, 401)
     if (tableError || !table) return json({ error: 'Nie znaleziono stołu.' }, 404)

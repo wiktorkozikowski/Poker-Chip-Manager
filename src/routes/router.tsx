@@ -9,6 +9,10 @@ import { RaisePage } from '../pages/game/RaisePage'
 import { ResolveRoundPage } from '../pages/game/ResolveRoundPage'
 import { TransferChipsPage } from '../pages/game/TransferChipsPage'
 import { HistoryPage } from '../pages/game/HistoryPage'
+import { PlayerConfigPage } from '../pages/game/PlayerConfigPage'
+import { LeaveTablePage } from '../pages/game/LeaveTablePage'
+import { CloseTablePage } from '../pages/game/CloseTablePage'
+import { ResetHandPage } from '../pages/game/ResetHandPage'
 import { HistoryPlaceholderPage } from '../pages/history/HistoryPlaceholderPage'
 import { SettingsPage } from '../pages/settings/SettingsPage'
 
@@ -34,6 +38,10 @@ export const router = createBrowserRouter([
       { path: 'tables/:tableId/game/resolve', element: <ResolveRoundPage /> },
       { path: 'tables/:tableId/game/transfer', element: <TransferChipsPage /> },
       { path: 'tables/:tableId/history', element: <HistoryPage /> },
+      { path: 'tables/:tableId/players', element: <PlayerConfigPage /> },
+      { path: 'tables/:tableId/leave', element: <LeaveTablePage /> },
+      { path: 'tables/:tableId/close', element: <CloseTablePage /> },
+      { path: 'tables/:tableId/reset-hand', element: <ResetHandPage /> },
     ],
   },
 ])

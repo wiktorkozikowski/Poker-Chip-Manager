@@ -10,6 +10,7 @@ import {
   Circle,
   CircleDot,
   XCircle,
+  RotateCcw,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { Badge } from '../../components/ui/Badge'
@@ -39,6 +40,7 @@ const ICON_BY_TYPE: Record<ActionType, { icon: ComponentType<{ size?: number }>;
   blind: { icon: PlusCircle, color: 'neutral' },
   transfer: { icon: ArrowLeftRight, color: 'green' },
   round_win: { icon: Trophy, color: 'yellow' },
+  reset_hand: { icon: RotateCcw, color: 'red' },
 }
 
 function formatTime(iso: string) {
@@ -102,6 +104,22 @@ function groupEntries(rows: ActionLogRow[], nameById: Map<string, string>): Disp
           note: group.length > 1 ? 'Split pot' : undefined,
         })
       }
+      continue
+    }
+
+    if (row.action_type === 'reset_hand') {
+      result.push({
+        id: row.id,
+        time,
+        date,
+        icon,
+        iconColor: color,
+        title: 'Rozdanie zresetowane',
+        subtitle: `Host: ${name}`,
+        amounts: [],
+        note: row.amount ? `Zwrot: ${row.amount.toLocaleString('pl-PL')}` : undefined,
+      })
+      i++
       continue
     }
 

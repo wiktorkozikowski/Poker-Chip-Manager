@@ -31,6 +31,23 @@ export function useJoinTable() {
       if (!table) throw new Error('Nie znaleziono stołu o tym kodzie.')
       if (table.status !== 'lobby') throw new Error('Ten stolik już rozpoczął grę.')
 
+      const { data: myRows } = await supabase
+        .from('players')
+        .select('table_id')
+        .eq('user_id', userId)
+        .is('left_at', null)
+      const myTableIds = [...new Set((myRows ?? []).map((r) => r.table_id))]
+      if (myTableIds.length > 0) {
+        const { count: activeCount } = await supabase
+          .from('tables')
+          .select('id', { count: 'exact', head: true })
+          .in('id', myTableIds)
+          .neq('status', 'finished')
+        if ((activeCount ?? 0) >= 4) {
+          throw new Error('Możesz należeć maksymalnie do 4 aktywnych stołów jednocześnie.')
+        }
+      }
+
       const { count } = await supabase
         .from('players')
         .select('id', { count: 'exact', head: true })

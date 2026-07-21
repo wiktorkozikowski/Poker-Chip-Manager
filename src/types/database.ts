@@ -12,7 +12,7 @@ export type LastAction = 'check' | 'call' | 'raise' | 'fold'
 
 export type BettingRound = 'preflop' | 'flop' | 'turn' | 'river' | 'showdown'
 
-export type ActionType = 'check' | 'call' | 'raise' | 'fold' | 'blind' | 'transfer' | 'round_win'
+export type ActionType = 'check' | 'call' | 'raise' | 'fold' | 'blind' | 'transfer' | 'round_win' | 'reset_hand'
 
 // `type` (nie `interface`) celowo — interfejsy nie mają niejawnej sygnatury
 // indeksu, więc nie spełniają strukturalnie `Record<string, unknown>`
@@ -62,6 +62,8 @@ export type PlayerRow = {
   is_big_blind: boolean
   /** Ostatnia akcja w bieżącej rundzie licytacji — czyszczona przy nowym podbiciu/ulicy. */
   last_action: LastAction | null
+  /** Trwały znacznik odejścia (opuścił stół albo został usunięty przez hosta) — nigdy nie kasujemy wiersza. */
+  left_at: string | null
 }
 
 export type ActionLogRow = {

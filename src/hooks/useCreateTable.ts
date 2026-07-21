@@ -33,6 +33,23 @@ export function useCreateTable() {
     setError(null)
 
     try {
+      const { data: myRows } = await supabase
+        .from('players')
+        .select('table_id')
+        .eq('user_id', input.userId)
+        .is('left_at', null)
+      const myTableIds = [...new Set((myRows ?? []).map((r) => r.table_id))]
+      if (myTableIds.length > 0) {
+        const { count } = await supabase
+          .from('tables')
+          .select('id', { count: 'exact', head: true })
+          .in('id', myTableIds)
+          .neq('status', 'finished')
+        if ((count ?? 0) >= 4) {
+          throw new Error('Możesz należeć maksymalnie do 4 aktywnych stołów jednocześnie.')
+        }
+      }
+
       let table: TableRow | null = null
 
       for (let attempt = 0; attempt < MAX_JOIN_CODE_ATTEMPTS; attempt++) {

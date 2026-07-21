@@ -39,9 +39,11 @@ export function GamePage() {
   const [menuOpen, setMenuOpen] = useState(false)
   const autoResolvedRef = useRef(false)
 
-  const myPlayer = players.find((p) => p.user_id === user?.id)
+  const presentPlayers = players.filter((p) => !p.left_at)
+  const myPlayer = presentPlayers.find((p) => p.user_id === user?.id)
+  const isHost = presentPlayers.find((p) => p.position === 0)?.id === myPlayer?.id
   const isShowdown = table?.current_round === 'showdown'
-  const eligiblePlayers = players.filter((p) => p.status !== 'folded')
+  const eligiblePlayers = presentPlayers.filter((p) => p.status !== 'folded')
   const isFoldOut = isShowdown && eligiblePlayers.length === 1
 
   // Fold-out (wszyscy poza jednym spasowali): nie ma kogo pytać o wybór
@@ -61,6 +63,21 @@ export function GamePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFoldOut, myPlayer?.id, myPlayer?.is_dealer, tableId])
 
+  // Host zamknął stół — wszyscy podłączeni klienci wracają na listę stołów.
+  useEffect(() => {
+    if (table?.status === 'finished') {
+      navigate('/tables')
+    }
+  }, [table?.status, navigate])
+
+  // Zostałem usunięty przez hosta (dowiaduję się przez Realtime, nie przez
+  // własne kliknięcie) — gracze są już załadowani, ale mnie wśród nich nie ma.
+  useEffect(() => {
+    if (!loading && table && !myPlayer) {
+      navigate('/tables')
+    }
+  }, [loading, table, myPlayer, navigate])
+
   if (loading) {
     return <p className="p-4 text-center text-sm text-fg-muted">Wczytywanie...</p>
   }
@@ -70,7 +87,8 @@ export function GamePage() {
 
   const isMyTurn = !isShowdown && myPlayer?.status === 'active' && myPlayer.position === table.current_turn_position
   const toCall = myPlayer ? table.current_bet - myPlayer.current_round_bet : 0
-  const currentPlayerName = players.find((p) => p.position === table.current_turn_position)?.name
+  const currentPlayerName = presentPlayers.find((p) => p.position === table.current_turn_position)?.name
+  const onlineCount = presentPlayers.filter((p) => p.user_id && onlineUserIds.has(p.user_id)).length
 
   async function handleAction(action: 'check' | 'call' | 'fold') {
     if (!tableId || !myPlayer) return
@@ -90,7 +108,7 @@ export function GamePage() {
         <span className="flex items-center gap-3 text-xs text-fg-muted">
           <span className="flex items-center gap-1">
             <Users size={14} />
-            {players.length}
+            {onlineCount}
           </span>
           <Link to={`/tables/${tableId}/game/transfer`} aria-label="Przekaż żetony">
             <ArrowLeftRight size={16} className="text-fg" />
@@ -107,7 +125,7 @@ export function GamePage() {
       </div>
 
       <Card className="mb-6 flex flex-col gap-3 divide-y divide-border p-0">
-        {players.map((player) => {
+        {presentPlayers.map((player) => {
           const isCurrentTurn = !isShowdown && player.position === table.current_turn_position
           const isOnline = !!player.user_id && onlineUserIds.has(player.user_id)
           return (
@@ -204,7 +222,13 @@ export function GamePage() {
         </Button>
       </div>
 
-      <TableMenu tableId={table.id} open={menuOpen} onClose={() => setMenuOpen(false)} />
+      <TableMenu
+        tableId={table.id}
+        isHost={isHost}
+        canResetHand={isHost && table.status === 'active'}
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+      />
     </div>
   )
 }
