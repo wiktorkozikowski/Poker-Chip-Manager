@@ -3,6 +3,10 @@
 // czysty silnik w src/game-logic/bettingRound.ts. Klient nigdy nie zapisuje
 // chip_total/pot bezpośrednio (RLS nie ma polityki UPDATE dla anon) — to
 // jedyna droga zmiany stanu licytacji, więc nie da się tego obejść z devtools.
+//
+// Odczyty i zapisy idą równolegle (Promise.all) tam, gdzie się da — to
+// jedyna droga zmiany stanu, więc każda milisekunda w tej funkcji to
+// milisekunda, na którą czeka gracz z palcem nad przyciskiem.
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { applyAction } from '../../../src/game-logic/bettingRound.ts'
 import type { BettingAction, GamePlayer, GameTableState } from '../../../src/game-logic/types.ts'
@@ -37,20 +41,23 @@ Deno.serve(async (req) => {
       return json({ error: 'Brak tableId, playerId lub action.' }, 400)
     }
 
-    const callerUserId = await getCallerUserId(req)
-    if (!callerUserId) return json({ error: 'Brak autoryzacji.' }, 401)
-
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
-    const { data: table, error: tableError } = await supabase.from('tables').select('*').eq('id', tableId).single()
+    // Weryfikacja tokenu i pobranie danych nie zależą od siebie nawzajem —
+    // lecą równolegle zamiast czekać w kolejce (jedna mniej sekwencyjna
+    // podróż w obie strony do serwera = odczuwalnie szybsza akcja).
+    const [
+      callerUserId,
+      { data: table, error: tableError },
+      { data: playerRows, error: playersError },
+    ] = await Promise.all([
+      getCallerUserId(req),
+      supabase.from('tables').select('*').eq('id', tableId).single(),
+      supabase.from('players').select('*').eq('table_id', tableId).order('position'),
+    ])
+    if (!callerUserId) return json({ error: 'Brak autoryzacji.' }, 401)
     if (tableError || !table) return json({ error: 'Nie znaleziono stołu.' }, 404)
     if (table.status !== 'active') return json({ error: 'Stolik nie jest w trakcie gry.' }, 409)
-
-    const { data: playerRows, error: playersError } = await supabase
-      .from('players')
-      .select('*')
-      .eq('table_id', tableId)
-      .order('position')
     if (playersError || !playerRows) return json({ error: 'Nie udało się pobrać graczy.' }, 500)
 
     const actorRow = playerRows.find((p) => p.id === playerId)
@@ -65,9 +72,11 @@ Deno.serve(async (req) => {
       position: p.position,
       status: p.status,
       currentRoundBet: p.current_round_bet,
+      totalInvested: p.total_invested,
       isDealer: p.is_dealer,
       isSmallBlind: p.is_small_blind,
       isBigBlind: p.is_big_blind,
+      lastAction: p.last_action,
     }))
 
     const state: GameTableState = {
@@ -90,22 +99,45 @@ Deno.serve(async (req) => {
       return json({ error: err instanceof Error ? err.message : 'Nieprawidłowa akcja.' }, 400)
     }
 
-    for (const p of result.players) {
-      const before = domainPlayers.find((d) => d.id === p.id)!
-      if (
-        before.chipTotal !== p.chipTotal ||
-        before.currentRoundBet !== p.currentRoundBet ||
-        before.status !== p.status
-      ) {
-        const { error: updateError } = await supabase
-          .from('players')
-          .update({ chip_total: p.chipTotal, current_round_bet: p.currentRoundBet, status: p.status })
-          .eq('id', p.id)
-        if (updateError) return json({ error: updateError.message }, 500)
-      }
-    }
+    const actor = domainPlayers.find((p) => p.id === playerId)!
+    const actionAmount =
+      action === 'raise'
+        ? raiseTo!
+        : action === 'call'
+          ? result.players.find((p) => p.id === playerId)!.currentRoundBet
+          : null
 
-    const { error: tableUpdateError } = await supabase
+    const changedPlayerUpdates = result.players
+      .filter((p) => {
+        const before = domainPlayers.find((d) => d.id === p.id)!
+        return (
+          before.chipTotal !== p.chipTotal ||
+          before.currentRoundBet !== p.currentRoundBet ||
+          before.totalInvested !== p.totalInvested ||
+          before.status !== p.status ||
+          before.lastAction !== p.lastAction
+        )
+      })
+      .map((p) =>
+        supabase
+          .from('players')
+          .update({
+            chip_total: p.chipTotal,
+            current_round_bet: p.currentRoundBet,
+            total_invested: p.totalInvested,
+            status: p.status,
+            last_action: p.lastAction,
+          })
+          .eq('id', p.id),
+      )
+
+    // Fold-out (albo river zamknięty) przeskakuje na 'showdown' z dowolnej
+    // ulicy — zapamiętujemy, z której, żeby UI mogło podświetlić właściwą
+    // kropkę postępu rozdania zamiast zawsze zakładać river.
+    const showdownFromRound =
+      result.currentRound === 'showdown' && state.currentRound !== 'showdown' ? state.currentRound : table.showdown_from_round
+
+    const tableUpdate = supabase
       .from('tables')
       .update({
         pot: result.pot,
@@ -114,20 +146,17 @@ Deno.serve(async (req) => {
         last_raiser_position: result.lastRaiserPosition,
         current_round: result.currentRound,
         players_to_act: result.playersToAct,
+        showdown_from_round: showdownFromRound,
       })
       .eq('id', tableId)
-    if (tableUpdateError) return json({ error: tableUpdateError.message }, 500)
 
-    const actor = domainPlayers.find((p) => p.id === playerId)!
-    const actionAmount =
-      action === 'raise'
-        ? raiseTo!
-        : action === 'call'
-          ? result.players.find((p) => p.id === playerId)!.currentRoundBet
-          : null
-    await supabase
+    const logInsert = supabase
       .from('actions_log')
       .insert({ table_id: tableId, player_id: actor.id, action_type: action, amount: actionAmount })
+
+    const writeResults = await Promise.all([...changedPlayerUpdates, tableUpdate, logInsert])
+    const writeError = writeResults.find((r) => r.error)?.error
+    if (writeError) return json({ error: writeError.message }, 500)
 
     return json({ ok: true, currentRound: result.currentRound }, 200)
   } catch (err) {

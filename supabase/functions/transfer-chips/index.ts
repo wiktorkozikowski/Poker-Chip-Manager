@@ -36,16 +36,13 @@ Deno.serve(async (req) => {
     if (fromPlayerId === toPlayerId) return json({ error: 'Nie można przekazać żetonów samemu sobie.' }, 400)
     if (amount <= 0) return json({ error: 'Kwota musi być dodatnia.' }, 400)
 
-    const callerUserId = await getCallerUserId(req)
-    if (!callerUserId) return json({ error: 'Brak autoryzacji.' }, 401)
-
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
-    const { data: players, error: playersError } = await supabase
-      .from('players')
-      .select('*')
-      .eq('table_id', tableId)
-      .in('id', [fromPlayerId, toPlayerId])
+    const [callerUserId, { data: players, error: playersError }] = await Promise.all([
+      getCallerUserId(req),
+      supabase.from('players').select('*').eq('table_id', tableId).in('id', [fromPlayerId, toPlayerId]),
+    ])
+    if (!callerUserId) return json({ error: 'Brak autoryzacji.' }, 401)
     if (playersError || !players) return json({ error: 'Nie udało się pobrać graczy.' }, 500)
 
     const from = players.find((p) => p.id === fromPlayerId)
@@ -54,25 +51,19 @@ Deno.serve(async (req) => {
     if (from.user_id !== callerUserId) return json({ error: 'Nie możesz wykonać akcji za innego gracza.' }, 403)
     if (from.chip_total < amount) return json({ error: 'Nie masz tylu żetonów.' }, 400)
 
-    const { error: fromError } = await supabase
-      .from('players')
-      .update({ chip_total: from.chip_total - amount })
-      .eq('id', from.id)
-    if (fromError) return json({ error: fromError.message }, 500)
-
-    const { error: toError } = await supabase
-      .from('players')
-      .update({ chip_total: to.chip_total + amount })
-      .eq('id', to.id)
-    if (toError) return json({ error: toError.message }, 500)
-
-    await supabase.from('actions_log').insert({
-      table_id: tableId,
-      player_id: from.id,
-      target_player_id: to.id,
-      action_type: 'transfer',
-      amount,
-    })
+    const writeResults = await Promise.all([
+      supabase.from('players').update({ chip_total: from.chip_total - amount }).eq('id', from.id),
+      supabase.from('players').update({ chip_total: to.chip_total + amount }).eq('id', to.id),
+      supabase.from('actions_log').insert({
+        table_id: tableId,
+        player_id: from.id,
+        target_player_id: to.id,
+        action_type: 'transfer',
+        amount,
+      }),
+    ])
+    const writeError = writeResults.find((r) => r.error)?.error
+    if (writeError) return json({ error: writeError.message }, 500)
 
     return json({ ok: true }, 200)
   } catch (err) {

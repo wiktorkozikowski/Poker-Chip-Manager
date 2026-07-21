@@ -20,7 +20,7 @@ import { useStartGame } from '../../hooks/useStartGame'
 export function LobbyPage() {
   const { tableId } = useParams()
   const navigate = useNavigate()
-  const { table, players, loading, error } = useTableWithPlayers(tableId)
+  const { table, players, loading, error, refetch } = useTableWithPlayers(tableId)
   const { user } = useAuth()
   const { startGame, loading: starting, error: startError } = useStartGame()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -46,9 +46,10 @@ export function LobbyPage() {
 
   async function handleStart() {
     if (!tableId || !myPlayer) return
-    await startGame(tableId, myPlayer.id)
-    // Sukces: realtime subskrypcja na `tables` sama zaktualizuje status i
-    // przekieruje przez useEffect powyżej — nie trzeba nawigować ręcznie.
+    const ok = await startGame(tableId, myPlayer.id)
+    // Nie czekamy na Realtime u hosta — od razu odświeżamy, co przez
+    // useEffect powyżej natychmiast przekieruje na ekran gry.
+    if (ok) await refetch()
   }
 
   return (

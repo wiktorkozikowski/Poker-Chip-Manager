@@ -42,7 +42,9 @@ function startNextStreet(state: GameTableState): GameTableState {
   const currentIndex = ROUND_ORDER.indexOf(state.currentRound)
   const nextRound = ROUND_ORDER[currentIndex + 1]
 
-  const players = state.players.map((p) => (p.status === 'active' ? { ...p, currentRoundBet: 0 } : p))
+  const players = state.players.map((p) =>
+    p.status === 'active' ? { ...p, currentRoundBet: 0, lastAction: null } : p,
+  )
   const playersWhoCanAct = players.filter((p) => p.status === 'active')
 
   if (!nextRound || playersWhoCanAct.length <= 1) {
@@ -99,12 +101,13 @@ export function applyAction(
 
   switch (action) {
     case 'fold': {
-      players = updatePlayer(players, actor.id, { status: 'folded' })
+      players = updatePlayer(players, actor.id, { status: 'folded', lastAction: 'fold' })
       playersToAct -= 1
       break
     }
     case 'check': {
       if (toCall > 0) throw new Error('Nie możesz czekować — jest stawka do wyrównania.')
+      players = updatePlayer(players, actor.id, { lastAction: 'check' })
       playersToAct -= 1
       break
     }
@@ -115,7 +118,9 @@ export function applyAction(
       players = updatePlayer(players, actor.id, {
         chipTotal: actor.chipTotal - amount,
         currentRoundBet: actor.currentRoundBet + amount,
+        totalInvested: actor.totalInvested + amount,
         status: isAllIn ? 'all_in' : 'active',
+        lastAction: 'call',
       })
       pot += amount
       playersToAct -= 1
@@ -131,10 +136,18 @@ export function applyAction(
 
       const amountAdded = raiseTo - actor.currentRoundBet
       const isAllIn = raiseTo === maxTotal
+      // Podbicie otwiera kolejkę na nowo — czyścimy oznaczenia akcji innym
+      // wciąż aktywnym graczom (fold zostaje, bo status='folded' nie jest
+      // ruszany przez ten reset).
+      players = players.map((p) =>
+        p.status === 'active' && p.id !== actor.id ? { ...p, lastAction: null } : p,
+      )
       players = updatePlayer(players, actor.id, {
         chipTotal: actor.chipTotal - amountAdded,
         currentRoundBet: raiseTo,
+        totalInvested: actor.totalInvested + amountAdded,
         status: isAllIn ? 'all_in' : 'active',
+        lastAction: 'raise',
       })
       pot += amountAdded
       currentBet = raiseTo

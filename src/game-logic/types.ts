@@ -18,9 +18,13 @@ export interface GamePlayer {
   position: number
   status: PlayerStatus
   currentRoundBet: number
+  /** Suma wpłat w całym bieżącym rozdaniu (przez wszystkie ulice), reset na nowej ręce. */
+  totalInvested: number
   isDealer: boolean
   isSmallBlind: boolean
   isBigBlind: boolean
+  /** Ostatnia akcja w bieżącej rundzie licytacji — czyszczona przy nowym podbiciu/ulicy. */
+  lastAction: BettingAction | null
 }
 
 export interface GameTableState {

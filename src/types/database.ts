@@ -8,6 +8,8 @@ export type TableStatus = 'lobby' | 'active' | 'finished'
 
 export type PlayerStatus = 'active' | 'folded' | 'all_in'
 
+export type LastAction = 'check' | 'call' | 'raise' | 'fold'
+
 export type BettingRound = 'preflop' | 'flop' | 'turn' | 'river' | 'showdown'
 
 export type ActionType = 'check' | 'call' | 'raise' | 'fold' | 'blind' | 'transfer' | 'round_win'
@@ -30,10 +32,16 @@ export type TableRow = {
   dealer_position: number
   current_turn_position: number
   last_raiser_position: number | null
-  /** Ulica licytacji bieżącego rozdania — 'showdown' = czeka na Fazę 4. */
+  /** Ulica licytacji bieżącego rozdania — 'showdown' = czeka na rozstrzygnięcie. */
   current_round: BettingRound
   /** Ilu aktywnych graczy musi jeszcze zareagować, zanim runda się zamknie. */
   players_to_act: number
+  /**
+   * Na której ulicy faktycznie zamknęła się licytacja, gdy current_round
+   * przeszło na 'showdown' — potrzebne przy fold-out, bo wtedy silnik
+   * przeskakuje na showdown z dowolnej ulicy, nie tylko z rivera.
+   */
+  showdown_from_round: BettingRound | null
   created_at: string
 }
 
@@ -47,9 +55,13 @@ export type PlayerRow = {
   position: number
   status: PlayerStatus
   current_round_bet: number
+  /** Suma wpłat w całym bieżącym rozdaniu (przez wszystkie ulice), reset na nowej ręce. */
+  total_invested: number
   is_dealer: boolean
   is_small_blind: boolean
   is_big_blind: boolean
+  /** Ostatnia akcja w bieżącej rundzie licytacji — czyszczona przy nowym podbiciu/ulicy. */
+  last_action: LastAction | null
 }
 
 export type ActionLogRow = {

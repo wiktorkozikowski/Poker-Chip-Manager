@@ -31,20 +31,20 @@ Deno.serve(async (req) => {
       return json({ error: 'Brak tableId lub playerId.' }, 400)
     }
 
-    const callerUserId = await getCallerUserId(req)
-    if (!callerUserId) return json({ error: 'Brak autoryzacji.' }, 401)
-
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
-    const { data: table, error: tableError } = await supabase.from('tables').select('*').eq('id', tableId).single()
+    const [
+      callerUserId,
+      { data: table, error: tableError },
+      { data: players, error: playersError },
+    ] = await Promise.all([
+      getCallerUserId(req),
+      supabase.from('tables').select('*').eq('id', tableId).single(),
+      supabase.from('players').select('*').eq('table_id', tableId).order('position'),
+    ])
+    if (!callerUserId) return json({ error: 'Brak autoryzacji.' }, 401)
     if (tableError || !table) return json({ error: 'Nie znaleziono stołu.' }, 404)
     if (table.status !== 'lobby') return json({ error: 'Gra już wystartowała.' }, 409)
-
-    const { data: players, error: playersError } = await supabase
-      .from('players')
-      .select('*')
-      .eq('table_id', tableId)
-      .order('position')
     if (playersError || !players) return json({ error: 'Nie udało się pobrać graczy.' }, 500)
 
     const host = players.find((p) => p.position === 0)
@@ -62,28 +62,31 @@ Deno.serve(async (req) => {
       position: p.position,
       status: p.status,
       currentRoundBet: p.current_round_bet,
+      totalInvested: p.total_invested,
       isDealer: p.is_dealer,
       isSmallBlind: p.is_small_blind,
       isBigBlind: p.is_big_blind,
+      lastAction: p.last_action,
     }))
 
     const result = computeStartGame(domainPlayers, table.small_blind, table.big_blind, null)
 
-    for (const p of result.players) {
-      const { error: updateError } = await supabase
+    const playerUpdates = result.players.map((p) =>
+      supabase
         .from('players')
         .update({
           chip_total: p.chipTotal,
           current_round_bet: p.currentRoundBet,
+          total_invested: p.totalInvested,
           is_dealer: p.isDealer,
           is_small_blind: p.isSmallBlind,
           is_big_blind: p.isBigBlind,
+          last_action: p.lastAction,
         })
-        .eq('id', p.id)
-      if (updateError) return json({ error: updateError.message }, 500)
-    }
+        .eq('id', p.id),
+    )
 
-    const { error: tableUpdateError } = await supabase
+    const tableUpdate = supabase
       .from('tables')
       .update({
         status: 'active',
@@ -94,16 +97,20 @@ Deno.serve(async (req) => {
         last_raiser_position: result.lastRaiserPosition,
         current_round: 'preflop',
         players_to_act: result.playersToAct,
+        showdown_from_round: null,
       })
       .eq('id', tableId)
-    if (tableUpdateError) return json({ error: tableUpdateError.message }, 500)
 
     const sbPlayer = result.players.find((p) => p.isSmallBlind)!
     const bbPlayer = result.players.find((p) => p.isBigBlind)!
-    await supabase.from('actions_log').insert([
+    const logInsert = supabase.from('actions_log').insert([
       { table_id: tableId, player_id: sbPlayer.id, action_type: 'blind', amount: table.small_blind },
       { table_id: tableId, player_id: bbPlayer.id, action_type: 'blind', amount: table.big_blind },
     ])
+
+    const writeResults = await Promise.all([...playerUpdates, tableUpdate, logInsert])
+    const writeError = writeResults.find((r) => r.error)?.error
+    if (writeError) return json({ error: writeError.message }, 500)
 
     return json({ ok: true }, 200)
   } catch (err) {

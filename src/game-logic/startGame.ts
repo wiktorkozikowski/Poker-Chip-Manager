@@ -60,9 +60,13 @@ export function computeStartGame(
       ...p,
       chipTotal: p.chipTotal - bet,
       currentRoundBet: bet,
+      // Nowa ręka — licznik inwestycji zaczyna się od zera (plus blind, jeśli dotyczy).
+      totalInvested: bet,
       isDealer: p.position === dealerPosition,
       isSmallBlind: isSB,
       isBigBlind: isBB,
+      // Nowa ręka — nikt jeszcze nie zagrał (posty blindów to nie akcja).
+      lastAction: null,
     }
   })
 
