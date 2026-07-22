@@ -14,8 +14,8 @@ const ROW_HEIGHT = 56
 
 /**
  * Panel hosta: usuwanie graczy (swipe-left, dostępne zawsze) + zmiana
- * kolejności (drag na uchwycie, tylko w lobby — mid-hand ruszałoby
- * dealer_position/current_turn_position, na co silnik nie jest gotowy) +
+ * kolejności (drag na uchwycie, w lobby i w trakcie gry — mid-hand
+ * automatycznie anuluje bieżące rozdanie, patrz reorder-players) +
  * przekazanie roli hosta (ikona korony, w lobby albo między rozdaniami).
  */
 export function PlayerConfigPage() {
@@ -24,7 +24,7 @@ export function PlayerConfigPage() {
   const { table, players, loading, refetch } = useTableWithPlayers(tableId)
   const { user } = useAuth()
   const { kickPlayer, error: kickError } = useKickPlayer()
-  const { reorderPlayers } = useReorderPlayers()
+  const { reorderPlayers, error: reorderError } = useReorderPlayers()
   const { transferHost, loading: transferring, error: transferError } = useTransferHost()
 
   const presentPlayers = players.filter((p) => !p.left_at)
@@ -47,7 +47,10 @@ export function PlayerConfigPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [players])
 
-  const canReorder = table?.status === 'lobby'
+  // Reorder działa też w trakcie gry — przetasowanie automatycznie anuluje
+  // bieżące rozdanie (patrz reorder-players), więc silnik nigdy nie widzi
+  // przetasowanych pozycji w środku trwającej ulicy.
+  const canReorder = table?.status === 'lobby' || table?.status === 'active'
   const canTransfer = table?.status === 'lobby' || (table?.status === 'active' && table?.current_round === 'showdown')
 
   if (loading) {
@@ -118,6 +121,11 @@ export function PlayerConfigPage() {
 
   return (
     <Sheet title="Gracze" subtitle="Zarządzaj składem stołu">
+      {table.status === 'active' && (
+        <p className="mb-3 text-xs text-brand-red">
+          Zmiana kolejności w trakcie gry anuluje bieżące rozdanie — postawione żetony wrócą do graczy.
+        </p>
+      )}
       <div className="mb-2 flex items-center gap-2 rounded-xl bg-surface-2 px-4 py-3">
         <Crown size={16} className="text-brand-yellow" />
         <span className="flex-1 truncate text-sm text-fg">{host?.name}</span>
@@ -157,8 +165,8 @@ export function PlayerConfigPage() {
         {order.length === 0 && <p className="text-center text-sm text-fg-muted">Nie ma innych graczy przy stole.</p>}
       </div>
 
-      {(kickError || transferError) && (
-        <p className="mt-4 text-center text-sm text-brand-red">{kickError || transferError}</p>
+      {(kickError || transferError || reorderError) && (
+        <p className="mt-4 text-center text-sm text-brand-red">{kickError || transferError || reorderError}</p>
       )}
     </Sheet>
   )

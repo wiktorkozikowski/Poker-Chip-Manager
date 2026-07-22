@@ -1,12 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type PointerEvent } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { Users, Crown, ArrowLeftRight, Menu } from 'lucide-react'
+import { Users, Crown, ArrowLeftRight, Menu, GripVertical } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
+import { SwipeToDelete } from '../../components/ui/SwipeToDelete'
 import { TableMenu } from '../../components/nav/TableMenu'
 import { useTableWithPlayers } from '../../hooks/useTableWithPlayers'
 import { useAuth } from '../../hooks/AuthContext'
 import { useStartGame } from '../../hooks/useStartGame'
+import { useKickPlayer } from '../../hooks/useKickPlayer'
+import { useReorderPlayers } from '../../hooks/useReorderPlayers'
+import type { PlayerRow } from '../../types/database'
+
+const ROW_HEIGHT = 56
 
 /**
  * Uwaga: brak szkicu graficznego dla tego ekranu — stylizacja utrzymana w
@@ -16,6 +22,11 @@ import { useStartGame } from '../../hooks/useStartGame'
  * kolumny is_host w bazie, position 0 jest zawsze przypisywana hostowi przy
  * tworzeniu stołu (patrz useCreateTable) i nie zmienia się przy rotacji
  * dealera (to osobne pole is_dealer).
+ *
+ * Zmiana kolejności (drag na uchwycie) i usuwanie graczy (swipe-left) są tu,
+ * bezpośrednio na liście — host widzi i zmienia skład stołu w tym samym
+ * miejscu, bez wchodzenia do osobnego panelu "Gracze" (ten zostaje dla
+ * przekazania roli hosta i zarządzania w trakcie gry, patrz PlayerConfigPage).
  */
 export function LobbyPage() {
   const { tableId } = useParams()
@@ -23,11 +34,28 @@ export function LobbyPage() {
   const { table, players, loading, error, refetch } = useTableWithPlayers(tableId)
   const { user } = useAuth()
   const { startGame, loading: starting, error: startError } = useStartGame()
+  const { kickPlayer, error: kickError } = useKickPlayer()
+  const { reorderPlayers, error: reorderError } = useReorderPlayers()
   const [menuOpen, setMenuOpen] = useState(false)
 
   const presentPlayers = players.filter((p) => !p.left_at)
   const myPlayer = presentPlayers.find((p) => p.user_id === user?.id)
-  const isHost = presentPlayers.find((p) => p.position === 0)?.id === myPlayer?.id
+  const host = presentPlayers.find((p) => p.position === 0)
+  const isHost = host?.id === myPlayer?.id
+
+  const nonHostServerOrder = presentPlayers.filter((p) => p.position !== 0).sort((a, b) => a.position - b.position)
+  const [order, setOrder] = useState<PlayerRow[]>(nonHostServerOrder)
+  const draggingIndexRef = useRef<number | null>(null)
+  const startYRef = useRef(0)
+  const startIndexRef = useRef(0)
+  const pointerIdRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (draggingIndexRef.current === null) {
+      setOrder(nonHostServerOrder)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [players])
 
   // Realtime: gdy status stołu zmieni się na 'active' (host kliknął start —
   // u siebie albo u kogoś innego), wszyscy gracze trafiają na ekran gry.
@@ -68,6 +96,55 @@ export function LobbyPage() {
     if (ok) await refetch()
   }
 
+  function handlePointerDown(e: PointerEvent<HTMLDivElement>, index: number) {
+    draggingIndexRef.current = index
+    startIndexRef.current = index
+    startYRef.current = e.clientY
+    pointerIdRef.current = e.pointerId
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  function handlePointerMove(e: PointerEvent<HTMLDivElement>) {
+    if (draggingIndexRef.current === null || pointerIdRef.current !== e.pointerId) return
+    const deltaY = e.clientY - startYRef.current
+    const hoverIndex = Math.max(
+      0,
+      Math.min(order.length - 1, startIndexRef.current + Math.round(deltaY / ROW_HEIGHT)),
+    )
+    if (hoverIndex !== draggingIndexRef.current) {
+      const from = draggingIndexRef.current
+      setOrder((prev) => {
+        const next = [...prev]
+        const [moved] = next.splice(from, 1)
+        next.splice(hoverIndex, 0, moved)
+        return next
+      })
+      draggingIndexRef.current = hoverIndex
+    }
+  }
+
+  async function handlePointerUp(e: PointerEvent<HTMLDivElement>) {
+    if (pointerIdRef.current !== e.pointerId) return
+    pointerIdRef.current = null
+    draggingIndexRef.current = null
+    const changed = order.some((p, i) => p.id !== nonHostServerOrder[i]?.id)
+    if (changed && tableId && host) {
+      const ok = await reorderPlayers(
+        tableId,
+        host.id,
+        order.map((p) => p.id),
+      )
+      if (ok) await refetch()
+      else setOrder(nonHostServerOrder)
+    }
+  }
+
+  async function handleKick(targetId: string) {
+    if (!tableId || !host) return
+    const ok = await kickPlayer(tableId, host.id, targetId)
+    if (ok) await refetch()
+  }
+
   return (
     <div className="p-4">
       <header className="mb-6 text-center">
@@ -87,19 +164,43 @@ export function LobbyPage() {
       </header>
 
       <Card className="mb-6 flex flex-col divide-y divide-border p-0">
-        {presentPlayers.map((player) => (
-          <div key={player.id} className="flex items-center gap-2 px-4 py-3">
+        {host && (
+          <div className="flex items-center gap-2 px-4 py-3">
             <Users size={16} className="text-fg-muted" />
-            <span className="text-sm text-fg">{player.name}</span>
-            {player.position === 0 && <Crown size={14} className="text-brand-yellow" />}
+            <span className="flex-1 truncate text-sm text-fg">{host.name}</span>
+            <Crown size={14} className="text-brand-yellow" />
           </div>
-        ))}
+        )}
+        {isHost
+          ? order.map((player, index) => (
+              <SwipeToDelete key={player.id} onDelete={() => handleKick(player.id)}>
+                <div className="flex items-center gap-2 px-4" style={{ height: ROW_HEIGHT }}>
+                  <div
+                    onPointerDown={(e) => handlePointerDown(e, index)}
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={handlePointerUp}
+                    className="cursor-grab touch-none text-fg-muted"
+                  >
+                    <GripVertical size={18} />
+                  </div>
+                  <span className="flex-1 truncate text-sm text-fg">{player.name}</span>
+                </div>
+              </SwipeToDelete>
+            ))
+          : order.map((player) => (
+              <div key={player.id} className="flex items-center gap-2 px-4 py-3">
+                <Users size={16} className="text-fg-muted" />
+                <span className="text-sm text-fg">{player.name}</span>
+              </div>
+            ))}
         {Array.from({ length: table.max_players - presentPlayers.length }).map((_, i) => (
           <div key={`empty-${i}`} className="px-4 py-3 text-sm text-fg-muted">
             Wolne miejsce
           </div>
         ))}
       </Card>
+
+      {(kickError || reorderError) && <p className="mb-4 text-center text-sm text-brand-red">{kickError || reorderError}</p>}
 
       <Button
         color="primary"

@@ -13,6 +13,7 @@ import { PlayerConfigPage } from '../pages/game/PlayerConfigPage'
 import { LeaveTablePage } from '../pages/game/LeaveTablePage'
 import { CloseTablePage } from '../pages/game/CloseTablePage'
 import { ResetHandPage } from '../pages/game/ResetHandPage'
+import { HandRankingsPage } from '../pages/game/HandRankingsPage'
 import { HistoryPlaceholderPage } from '../pages/history/HistoryPlaceholderPage'
 import { SettingsPage } from '../pages/settings/SettingsPage'
 
@@ -42,6 +43,7 @@ export const router = createBrowserRouter([
       { path: 'tables/:tableId/leave', element: <LeaveTablePage /> },
       { path: 'tables/:tableId/close', element: <CloseTablePage /> },
       { path: 'tables/:tableId/reset-hand', element: <ResetHandPage /> },
+      { path: 'tables/:tableId/hand-rankings', element: <HandRankingsPage /> },
     ],
   },
 ])

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { History, LayoutGrid, Users, Lock, LogOut, RotateCcw } from 'lucide-react'
+import { History, LayoutGrid, Users, Lock, LogOut, RotateCcw, Spade } from 'lucide-react'
 import { Drawer } from '../ui/Drawer'
 
 interface TableMenuProps {
@@ -33,6 +33,10 @@ export function TableMenu({ tableId, isHost, canResetHand, open, onClose }: Tabl
         <Link to="/tables" onClick={onClose} className={itemClass}>
           <LayoutGrid size={18} />
           Moje Stoły
+        </Link>
+        <Link to={`/tables/${tableId}/hand-rankings`} onClick={onClose} className={itemClass}>
+          <Spade size={18} />
+          Układy kart
         </Link>
         {isHost ? (
           <>

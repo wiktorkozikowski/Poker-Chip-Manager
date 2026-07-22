@@ -57,7 +57,9 @@ export function useMyTablesData(userId: string | undefined) {
         return
       }
 
-      const { data: tablesData } = await supabase.from('tables').select('*').in('id', tableIds)
+      // Zamknięte stoły (host je zamknął) mają zniknąć z widoku — 'finished'
+      // to stan końcowy, nic już się tam nie dzieje.
+      const { data: tablesData } = await supabase.from('tables').select('*').in('id', tableIds).neq('status', 'finished')
       if (cancelled) return
 
       setTables(tablesData ?? [])
