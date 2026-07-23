@@ -1,4 +1,5 @@
 import type { GamePlayer } from './types'
+import { nextActivePosition } from './bettingRound.ts'
 
 export interface StartGameResult {
   dealerPosition: number
@@ -42,18 +43,23 @@ function dealHandAtDealer(
   // konwencja pokerowa, inaczej niż przy 3+ graczach.
   const smallBlindPosition = seats.length === 2 ? dealerPosition : nextPosition(dealerPosition)
   const bigBlindPosition = nextPosition(smallBlindPosition)
-  const currentTurnPosition = nextPosition(bigBlindPosition)
 
+  // Gracz z mniejszym stosem niż wynosi blind płaci tyle, ile ma, i idzie
+  // all-in za niepełny blind (tak samo jak przy call/raise w applyAction) —
+  // bez tego stos schodziłby poniżej zera.
   const updatedPlayers = seats.map((p) => {
     const isSB = p.position === smallBlindPosition
     const isBB = p.position === bigBlindPosition
-    const bet = isSB ? smallBlind : isBB ? bigBlind : 0
+    const rawBet = isSB ? smallBlind : isBB ? bigBlind : 0
+    const bet = Math.min(rawBet, p.chipTotal)
+    const isShortAllIn = (isSB || isBB) && rawBet > 0 && bet === p.chipTotal
     return {
       ...p,
       chipTotal: p.chipTotal - bet,
       currentRoundBet: bet,
       // Nowa ręka — licznik inwestycji zaczyna się od zera (plus blind, jeśli dotyczy).
       totalInvested: bet,
+      status: isShortAllIn ? ('all_in' as const) : p.status,
       isDealer: p.position === dealerPosition,
       isSmallBlind: isSB,
       isBigBlind: isBB,
@@ -61,6 +67,12 @@ function dealHandAtDealer(
       lastAction: null,
     }
   })
+
+  // Kolejka i licznik "kto musi jeszcze zareagować" liczą tylko graczy
+  // status='active' — all-in za niepełny blind nie jest pytany o nic więcej
+  // w tej ręce (tak samo jak all-in w trakcie normalnej licytacji).
+  const currentTurnPosition = nextActivePosition(updatedPlayers, bigBlindPosition)
+  const playersToAct = updatedPlayers.filter((p) => p.status === 'active').length
 
   return {
     dealerPosition,
@@ -70,7 +82,7 @@ function dealHandAtDealer(
     pot: smallBlind + bigBlind,
     currentBet: bigBlind,
     lastRaiserPosition: bigBlindPosition,
-    playersToAct: seats.length,
+    playersToAct,
     players: updatedPlayers,
   }
 }

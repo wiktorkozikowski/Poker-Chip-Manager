@@ -8,15 +8,15 @@ interface SwipeToDeleteProps {
 }
 
 const REVEAL_WIDTH = 80
-const SNAP_THRESHOLD = 24
 const COMMIT_THRESHOLD = 60
 
 /**
  * Przeciągnięcie w lewo odsłania czerwony kosz pod spodem (wzorem iOS
- * swipe-to-delete). Krótkie przeciągnięcie (>SNAP_THRESHOLD) zatrzaskuje w
- * pozycji odsłoniętej — trzeba dotknąć kosza, żeby faktycznie usunąć
- * (zabezpieczenie przed przypadkowym szybkim swipe'em). Dłuższe
- * (>COMMIT_THRESHOLD) usuwa od razu przy puszczeniu.
+ * swipe-to-delete). Tylko dwa stany: albo przeciągnięcie przekracza
+ * COMMIT_THRESHOLD i usuwa od razu przy puszczeniu, albo wraca w pełni do
+ * ukrytej pozycji — świadomie bez pośredniego "zatrzaśniętego, odsłoniętego"
+ * stanu (wymagającego drugiego stuknięcia), bo to zostawiało kosz widoczny
+ * bez wyjaśnienia, dlaczego się nie chowa.
  *
  * `onClickCapture` tłumi kliknięcie pod spodem po realnym przeciągnięciu —
  * to pozwala owinąć tym komponentem coś klikalnego (np. całą kartę-link) bez
@@ -52,16 +52,11 @@ export function SwipeToDelete({ onDelete, children, className = '' }: SwipeToDel
     if (pointerIdRef.current !== e.pointerId) return
     pointerIdRef.current = null
     const delta = -dragX
+    setDragX(0)
     if (delta > COMMIT_THRESHOLD) {
-      setDragX(0)
       draggingRef.current = false
       onDelete()
       return
-    }
-    if (delta > SNAP_THRESHOLD) {
-      setDragX(-REVEAL_WIDTH)
-    } else {
-      setDragX(0)
     }
     // Klik-tłumiący ref resetujemy z lekkim opóźnieniem, żeby zdążył
     // przechwycić syntetyczny click, który przeglądarka wystrzeli po pointerup.

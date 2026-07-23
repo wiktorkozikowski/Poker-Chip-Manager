@@ -104,6 +104,7 @@ export function TablesListPage() {
           value={playerName}
           onChange={(e) => setPlayerName(e.target.value)}
           placeholder="Twoje imię"
+          maxLength={20}
           className="mb-3 w-full rounded-xl border border-border bg-surface-2 px-4 py-3 text-fg outline-none focus:border-brand-green"
         />
 

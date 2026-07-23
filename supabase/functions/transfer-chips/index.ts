@@ -2,6 +2,11 @@
 // Ręczny transfer żetonów między graczami przy tym samym stole, dostępny w
 // dowolnym momencie (nie tylko w trakcie ręki). Klient nigdy nie zapisuje
 // chip_total bezpośrednio (RLS nie ma polityki UPDATE dla anon).
+//
+// Dwie ścieżki autoryzacji: zwykły gracz może przekazać TYLKO swoje własne
+// żetony (from = caller), a host może przenieść żetony między DOWOLNĄ parą
+// graczy przy stole (np. żeby wyrównać pomyłkę albo dołożyć komuś, kto
+// zszedł do zera) — stąd sprawdzamy oba warunki, nie tylko własność.
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { getCallerUserId } from '../_shared/auth.ts'
 
@@ -40,7 +45,7 @@ Deno.serve(async (req) => {
 
     const [callerUserId, { data: players, error: playersError }] = await Promise.all([
       getCallerUserId(req),
-      supabase.from('players').select('*').eq('table_id', tableId).in('id', [fromPlayerId, toPlayerId]),
+      supabase.from('players').select('*').eq('table_id', tableId).is('left_at', null),
     ])
     if (!callerUserId) return json({ error: 'Brak autoryzacji.' }, 401)
     if (playersError || !players) return json({ error: 'Nie udało się pobrać graczy.' }, 500)
@@ -48,8 +53,14 @@ Deno.serve(async (req) => {
     const from = players.find((p) => p.id === fromPlayerId)
     const to = players.find((p) => p.id === toPlayerId)
     if (!from || !to) return json({ error: 'Gracz nie należy do tego stołu.' }, 404)
-    if (from.user_id !== callerUserId) return json({ error: 'Nie możesz wykonać akcji za innego gracza.' }, 403)
-    if (from.chip_total < amount) return json({ error: 'Nie masz tylu żetonów.' }, 400)
+
+    const host = players.find((p) => p.position === 0)
+    const isOwnTransfer = from.user_id === callerUserId
+    const isHostTransfer = host?.user_id === callerUserId
+    if (!isOwnTransfer && !isHostTransfer) {
+      return json({ error: 'Nie możesz wykonać akcji za innego gracza.' }, 403)
+    }
+    if (from.chip_total < amount) return json({ error: 'Ten gracz nie ma tylu żetonów.' }, 400)
 
     const writeResults = await Promise.all([
       supabase.from('players').update({ chip_total: from.chip_total - amount }).eq('id', from.id),

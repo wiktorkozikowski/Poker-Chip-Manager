@@ -62,6 +62,7 @@ export function CreateTablePage() {
             value={hostName}
             onChange={(e) => setHostName(e.target.value)}
             placeholder="np. Adam"
+            maxLength={20}
             className="rounded-xl border border-border bg-surface-2 px-4 py-3 text-fg outline-none focus:border-brand-green"
           />
         </label>

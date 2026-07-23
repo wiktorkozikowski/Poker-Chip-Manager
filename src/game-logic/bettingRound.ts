@@ -12,7 +12,7 @@ function updatePlayer(players: GamePlayer[], id: string, patch: Partial<GamePlay
  * (np. właśnie spasował, albo to pozycja dealera do wyznaczenia pierwszego
  * gracza po nim na nowej ulicy).
  */
-function nextActivePosition(players: GamePlayer[], from: number): number {
+export function nextActivePosition(players: GamePlayer[], from: number): number {
   const activePositions = players
     .filter((p) => p.status === 'active')
     .map((p) => p.position)
