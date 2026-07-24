@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { functionErrorMessage } from '../lib/functionErrorMessage'
 import type { BettingAction } from '../game-logic/types'
 
 /**
@@ -21,14 +22,14 @@ export function usePlayerAction() {
     setLoading(true)
     setError(null)
 
-    const { data, error: invokeError } = await supabase.functions.invoke('player-action', {
+    const { error: invokeError } = await supabase.functions.invoke('player-action', {
       body: { tableId, playerId, action, raiseTo },
     })
 
     setLoading(false)
 
     if (invokeError) {
-      setError(data?.error ?? invokeError.message)
+      setError(await functionErrorMessage(invokeError, 'Nie udało się wykonać akcji.'))
       return false
     }
 

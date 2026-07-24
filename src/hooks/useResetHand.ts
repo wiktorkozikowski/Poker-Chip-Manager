@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { functionErrorMessage } from '../lib/functionErrorMessage'
 
 /** Wywołuje Edge Function `reset-hand` — host anuluje bieżące rozdanie, żetony wracają do graczy. */
 export function useResetHand() {
@@ -10,14 +11,14 @@ export function useResetHand() {
     setLoading(true)
     setError(null)
 
-    const { data, error: invokeError } = await supabase.functions.invoke('reset-hand', {
+    const { error: invokeError } = await supabase.functions.invoke('reset-hand', {
       body: { tableId, hostPlayerId },
     })
 
     setLoading(false)
 
     if (invokeError) {
-      setError(data?.error ?? invokeError.message)
+      setError(await functionErrorMessage(invokeError, 'Nie udało się zresetować rozdania.'))
       return false
     }
 

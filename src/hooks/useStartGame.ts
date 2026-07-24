@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { functionErrorMessage } from '../lib/functionErrorMessage'
 
 /**
  * Wywołuje Edge Function `start-game` — jedyny sposób przejścia stołu z
@@ -15,14 +16,14 @@ export function useStartGame() {
     setLoading(true)
     setError(null)
 
-    const { data, error: invokeError } = await supabase.functions.invoke('start-game', {
+    const { error: invokeError } = await supabase.functions.invoke('start-game', {
       body: { tableId, playerId },
     })
 
     setLoading(false)
 
     if (invokeError) {
-      setError(data?.error ?? invokeError.message)
+      setError(await functionErrorMessage(invokeError, 'Nie udało się rozpocząć gry.'))
       return false
     }
 

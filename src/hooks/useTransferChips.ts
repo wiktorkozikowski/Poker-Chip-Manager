@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { functionErrorMessage } from '../lib/functionErrorMessage'
 
 /**
  * Wywołuje Edge Function `transfer-chips` — jedyny sposób ręcznego
@@ -18,14 +19,14 @@ export function useTransferChips() {
     setLoading(true)
     setError(null)
 
-    const { data, error: invokeError } = await supabase.functions.invoke('transfer-chips', {
+    const { error: invokeError } = await supabase.functions.invoke('transfer-chips', {
       body: { tableId, fromPlayerId, toPlayerId, amount },
     })
 
     setLoading(false)
 
     if (invokeError) {
-      setError(data?.error ?? invokeError.message)
+      setError(await functionErrorMessage(invokeError, 'Nie udało się przekazać żetonów.'))
       return false
     }
 

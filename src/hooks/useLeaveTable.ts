@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { functionErrorMessage } from '../lib/functionErrorMessage'
 
 /** Wywołuje Edge Function `leave-table` — gracz opuszcza stół na zawsze. */
 export function useLeaveTable() {
@@ -10,14 +11,14 @@ export function useLeaveTable() {
     setLoading(true)
     setError(null)
 
-    const { data, error: invokeError } = await supabase.functions.invoke('leave-table', {
+    const { error: invokeError } = await supabase.functions.invoke('leave-table', {
       body: { tableId, playerId },
     })
 
     setLoading(false)
 
     if (invokeError) {
-      setError(data?.error ?? invokeError.message)
+      setError(await functionErrorMessage(invokeError, 'Nie udało się opuścić stołu.'))
       return false
     }
 

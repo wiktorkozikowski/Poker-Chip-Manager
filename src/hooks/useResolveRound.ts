@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { functionErrorMessage } from '../lib/functionErrorMessage'
 
 /**
  * Wywołuje Edge Function `resolve-round` — jedyny sposób wypłaty puli.
@@ -15,14 +16,14 @@ export function useResolveRound() {
     setLoading(true)
     setError(null)
 
-    const { data, error: invokeError } = await supabase.functions.invoke('resolve-round', {
+    const { error: invokeError } = await supabase.functions.invoke('resolve-round', {
       body: { tableId, dealerPlayerId, winnerIds },
     })
 
     setLoading(false)
 
     if (invokeError) {
-      setError(data?.error ?? invokeError.message)
+      setError(await functionErrorMessage(invokeError, 'Nie udało się rozstrzygnąć rozdania.'))
       return false
     }
 

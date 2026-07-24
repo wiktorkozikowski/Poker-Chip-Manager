@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { functionErrorMessage } from '../lib/functionErrorMessage'
 
 /** Wywołuje Edge Function `close-table` — host zamyka stół na zawsze. */
 export function useCloseTable() {
@@ -10,14 +11,14 @@ export function useCloseTable() {
     setLoading(true)
     setError(null)
 
-    const { data, error: invokeError } = await supabase.functions.invoke('close-table', {
+    const { error: invokeError } = await supabase.functions.invoke('close-table', {
       body: { tableId, hostPlayerId },
     })
 
     setLoading(false)
 
     if (invokeError) {
-      setError(data?.error ?? invokeError.message)
+      setError(await functionErrorMessage(invokeError, 'Nie udało się zamknąć stołu.'))
       return false
     }
 

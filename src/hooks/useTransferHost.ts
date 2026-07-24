@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { functionErrorMessage } from '../lib/functionErrorMessage'
 
 /** Wywołuje Edge Function `transfer-host` — host przekazuje rolę innemu graczowi. */
 export function useTransferHost() {
@@ -10,14 +11,14 @@ export function useTransferHost() {
     setLoading(true)
     setError(null)
 
-    const { data, error: invokeError } = await supabase.functions.invoke('transfer-host', {
+    const { error: invokeError } = await supabase.functions.invoke('transfer-host', {
       body: { tableId, hostPlayerId, targetPlayerId },
     })
 
     setLoading(false)
 
     if (invokeError) {
-      setError(data?.error ?? invokeError.message)
+      setError(await functionErrorMessage(invokeError, 'Nie udało się przekazać roli hosta.'))
       return false
     }
 

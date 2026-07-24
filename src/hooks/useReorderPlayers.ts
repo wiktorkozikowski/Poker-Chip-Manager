@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { functionErrorMessage } from '../lib/functionErrorMessage'
 
 /** Wywołuje Edge Function `reorder-players` — host zmienia kolejność miejsc (tylko w lobby). */
 export function useReorderPlayers() {
@@ -10,14 +11,14 @@ export function useReorderPlayers() {
     setLoading(true)
     setError(null)
 
-    const { data, error: invokeError } = await supabase.functions.invoke('reorder-players', {
+    const { error: invokeError } = await supabase.functions.invoke('reorder-players', {
       body: { tableId, hostPlayerId, orderedPlayerIds },
     })
 
     setLoading(false)
 
     if (invokeError) {
-      setError(data?.error ?? invokeError.message)
+      setError(await functionErrorMessage(invokeError, 'Nie udało się zmienić kolejności.'))
       return false
     }
 
