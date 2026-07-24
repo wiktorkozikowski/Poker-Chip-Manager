@@ -174,7 +174,7 @@ export function LobbyPage() {
         {isHost
           ? order.map((player, index) => (
               <SwipeToDelete key={player.id} onDelete={() => handleKick(player.id)}>
-                <div className="flex items-center gap-2 px-4" style={{ height: ROW_HEIGHT }}>
+                <div className="flex items-center gap-2 bg-surface px-4" style={{ height: ROW_HEIGHT }}>
                   <div
                     onPointerDown={(e) => handlePointerDown(e, index)}
                     onPointerMove={handlePointerMove}

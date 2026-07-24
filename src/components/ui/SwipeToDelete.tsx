@@ -21,6 +21,11 @@ const COMMIT_THRESHOLD = 60
  * `onClickCapture` tłumi kliknięcie pod spodem po realnym przeciągnięciu —
  * to pozwala owinąć tym komponentem coś klikalnego (np. całą kartę-link) bez
  * podwójnego efektu "swipe kończy się nawigacją".
+ *
+ * WAŻNE: `children` musi mieć własne NIEPRZEZROCZYSTE tło (np. `bg-surface`)
+ * — kosz jest pozycjonowany pod spodem (position: absolute) i bez
+ * nieprzezroczystego tła na dzieciach będzie prześwitywał przez cały czas,
+ * nie tylko w trakcie przeciągania (to konkretnie był bug w LobbyPage).
  */
 export function SwipeToDelete({ onDelete, children, className = '' }: SwipeToDeleteProps) {
   const [dragX, setDragX] = useState(0)
