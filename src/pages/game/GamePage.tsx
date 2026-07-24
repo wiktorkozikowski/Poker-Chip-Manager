@@ -90,6 +90,14 @@ export function GamePage() {
   const currentPlayerName = presentPlayers.find((p) => p.position === table.current_turn_position)?.name
   const onlineCount = presentPlayers.filter((p) => p.user_id && onlineUserIds.has(p.user_id)).length
 
+  // Spasowani gracze spadają na dół listy — łatwiej ogarnąć wzrokiem, kto
+  // jeszcze gra. Sortowanie jest stabilne (ES2019+), więc kolejność w
+  // obrębie "wciąż gra"/"spasował" zostaje po pozycji przy stole. Wraca do
+  // normy samo, bo na nowej ręce wszyscy dostają status 'active' na nowo.
+  const displayPlayers = [...presentPlayers].sort(
+    (a, b) => (a.status === 'folded' ? 1 : 0) - (b.status === 'folded' ? 1 : 0),
+  )
+
   async function handleAction(action: 'check' | 'call' | 'fold') {
     if (!tableId || !myPlayer) return
     const ok = await sendAction(tableId, myPlayer.id, action)
@@ -125,7 +133,7 @@ export function GamePage() {
       </div>
 
       <Card className="mb-6 flex flex-col gap-3 divide-y divide-border p-0">
-        {presentPlayers.map((player) => {
+        {displayPlayers.map((player) => {
           const isCurrentTurn = !isShowdown && player.position === table.current_turn_position
           const isOnline = !!player.user_id && onlineUserIds.has(player.user_id)
           return (
