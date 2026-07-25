@@ -36,3 +36,21 @@ body {
   background-color: var(--color-bg);
   color: var(--color-fg);
 }
+
+/*
+ * Apka ma działać jak natywny ekran, nie strona z tekstem — zaznaczanie
+ * (szczególnie przy przeciąganiu graczy w lobby albo dłuższym przytrzymaniu
+ * RAISE) tylko przeszkadza. Pola do wpisywania zostają zaznaczalne, bo tam
+ * to normalna, oczekiwana funkcja edycji tekstu.
+ */
+* {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
