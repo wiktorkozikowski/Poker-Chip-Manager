@@ -37,7 +37,10 @@ export function GamePage() {
   const { sendAction, loading: acting, error: actionError } = usePlayerAction()
   const { resolveRound } = useResolveRound()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [holdingRaise, setHoldingRaise] = useState(false)
   const autoResolvedRef = useRef(false)
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const allInTriggeredRef = useRef(false)
 
   const presentPlayers = players.filter((p) => !p.left_at)
   const myPlayer = presentPlayers.find((p) => p.user_id === user?.id)
@@ -78,6 +81,14 @@ export function GamePage() {
     }
   }, [loading, table, myPlayer, navigate])
 
+  // Sprzątanie timera przytrzymania RAISE, gdyby komponent odmontował się
+  // w trakcie (np. Realtime przekierowanie), zanim minęły 3s.
+  useEffect(() => {
+    return () => {
+      if (holdTimerRef.current) clearTimeout(holdTimerRef.current)
+    }
+  }, [])
+
   if (loading) {
     return <p className="p-4 text-center text-sm text-fg-muted">Wczytywanie...</p>
   }
@@ -104,6 +115,42 @@ export function GamePage() {
     // Nie czekamy na Realtime dla własnej akcji — inni gracze i tak dostaną
     // update tą drogą, ale to potrafi zająć kilka sekund.
     if (ok) await refetch()
+  }
+
+  async function handleAllIn() {
+    if (!tableId || !myPlayer) return
+    const maxRaise = myPlayer.chip_total + myPlayer.current_round_bet
+    const ok = await sendAction(tableId, myPlayer.id, 'raise', maxRaise)
+    if (ok) await refetch()
+  }
+
+  // Przytrzymanie RAISE przez 3s = szybki all-in bez wchodzenia na ekran
+  // wyboru kwoty. Krótkie puszczenie (zwykły tap) działa jak dotychczas —
+  // przechodzi do ekranu Raise.
+  function handleRaisePointerDown() {
+    allInTriggeredRef.current = false
+    setHoldingRaise(true)
+    holdTimerRef.current = setTimeout(() => {
+      allInTriggeredRef.current = true
+      setHoldingRaise(false)
+      handleAllIn()
+    }, 3000)
+  }
+
+  function cancelRaiseHold() {
+    setHoldingRaise(false)
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current)
+      holdTimerRef.current = null
+    }
+  }
+
+  function handleRaisePointerUp() {
+    const wasAllIn = allInTriggeredRef.current
+    cancelRaiseHold()
+    if (!wasAllIn) {
+      navigate(`/tables/${tableId}/game/raise`)
+    }
   }
 
   return (
@@ -161,7 +208,11 @@ export function GamePage() {
                 {player.is_dealer && <Badge color="green">D</Badge>}
                 {player.is_small_blind && <Badge color="blue">SB</Badge>}
                 {player.is_big_blind && <Badge color="yellow">BB</Badge>}
-                {player.status === 'all_in' && <Badge color="yellow">ALL-IN</Badge>}
+                {player.status === 'all_in' && (
+                  <span className="whitespace-nowrap rounded-full bg-brand-pink/20 px-2.5 py-1 text-xs font-bold text-brand-pink">
+                    ALL-IN
+                  </span>
+                )}
                 {player.total_invested > 0 && (
                   <span className="whitespace-nowrap rounded-full bg-brand-violet/20 px-2.5 py-1 text-xs font-bold text-brand-violet">
                     SUMA {player.total_invested}
@@ -221,9 +272,21 @@ export function GamePage() {
           color="warning"
           tone="outline"
           disabled={!isMyTurn || acting}
-          onClick={() => navigate(`/tables/${tableId}/game/raise`)}
+          onPointerDown={handleRaisePointerDown}
+          onPointerUp={handleRaisePointerUp}
+          onPointerLeave={cancelRaiseHold}
+          onPointerCancel={cancelRaiseHold}
+          className="relative overflow-hidden"
         >
-          RAISE
+          <span
+            className="absolute inset-0 bg-brand-pink/30"
+            style={{
+              transform: holdingRaise ? 'scaleX(1)' : 'scaleX(0)',
+              transformOrigin: 'left',
+              transition: holdingRaise ? 'transform 3000ms linear' : 'none',
+            }}
+          />
+          <span className="relative">{holdingRaise ? 'ALL-IN...' : 'RAISE'}</span>
         </Button>
         <Button color="danger" tone="outline" disabled={!isMyTurn || acting} onClick={() => handleAction('fold')}>
           FOLD

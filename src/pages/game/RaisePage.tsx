@@ -51,7 +51,7 @@ export function RaisePage() {
         </>
       }
     >
-      <div className="mb-8 grid grid-cols-4 gap-2">
+      <div className="mb-3 grid grid-cols-4 gap-2">
         {QUICK_AMOUNTS.map((step) => (
           <button
             key={step}
@@ -63,6 +63,14 @@ export function RaisePage() {
           </button>
         ))}
       </div>
+
+      <button
+        type="button"
+        onClick={() => setAmount(maxRaise)}
+        className="mb-8 w-full rounded-xl border border-brand-pink bg-brand-pink/10 py-2 text-sm font-bold text-brand-pink"
+      >
+        ALL-IN ({maxRaise})
+      </button>
 
       <Stepper value={value} onChange={(v) => setAmount(clamp(v))} min={minRaise} max={maxRaise} />
 
