@@ -86,8 +86,7 @@ Deno.serve(async (req) => {
       lastAction: p.last_action,
     }))
 
-    const winners = domainPlayers.filter((p) => effectiveWinnerIds.includes(p.id))
-    const payouts = computePotSplit(table.pot, table.dealer_position, domainPlayers.length, winners)
+    const payouts = computePotSplit(domainPlayers, table.dealer_position, domainPlayers.length, effectiveWinnerIds)
     const payoutMap = new Map(payouts.map((p) => [p.playerId, p.amount]))
 
     // Wszyscy wracają do gry na nową rękę (reset fold/all-in), z doliczoną wygraną.
