@@ -101,6 +101,12 @@ export function GamePage() {
   const currentPlayerName = presentPlayers.find((p) => p.position === table.current_turn_position)?.name
   const onlineCount = presentPlayers.filter((p) => p.user_id && onlineUserIds.has(p.user_id)).length
 
+  // Gdy stos gracza nie sięga pełnego minimalnego podbicia, "raise" i tak
+  // może być tylko all-in (bez wyboru kwoty) — przycisk od razu to pokazuje,
+  // zamiast udawać że jest jeszcze jakaś decyzja do podjęcia.
+  const myMaxRaise = myPlayer ? myPlayer.chip_total + myPlayer.current_round_bet : 0
+  const raiseIsForcedAllIn = myMaxRaise > 0 && myMaxRaise <= table.current_bet + table.big_blind
+
   // Spasowani gracze spadają na dół listy — łatwiej ogarnąć wzrokiem, kto
   // jeszcze gra. Sortowanie jest stabilne (ES2019+), więc kolejność w
   // obrębie "wciąż gra"/"spasował" zostaje po pozycji przy stole. Wraca do
@@ -286,7 +292,9 @@ export function GamePage() {
               transition: holdingRaise ? 'transform 3000ms linear' : 'none',
             }}
           />
-          <span className="relative">{holdingRaise ? 'ALL-IN...' : 'RAISE'}</span>
+          <span className="relative">
+            {holdingRaise ? 'ALL-IN...' : raiseIsForcedAllIn ? 'ALL-IN' : 'RAISE'}
+          </span>
         </Button>
         <Button color="danger" tone="outline" disabled={!isMyTurn || acting} onClick={() => handleAction('fold')}>
           FOLD
