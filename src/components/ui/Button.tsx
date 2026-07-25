@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes } from 'react'
 
-type Color = 'primary' | 'warning' | 'danger' | 'neutral'
+type Color = 'primary' | 'warning' | 'danger' | 'neutral' | 'pink'
 type Tone = 'solid' | 'outline'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

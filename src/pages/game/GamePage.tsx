@@ -154,7 +154,12 @@ export function GamePage() {
   function handleRaisePointerUp() {
     const wasAllIn = allInTriggeredRef.current
     cancelRaiseHold()
-    if (!wasAllIn) {
+    if (wasAllIn) return
+    if (raiseIsForcedAllIn) {
+      // Nie ma czego wybierać na ekranie Raise (min=max i tak) — zwykły tap
+      // od razu stawia all-in, bez przytrzymywania.
+      handleAllIn()
+    } else {
       navigate(`/tables/${tableId}/game/raise`)
     }
   }
@@ -271,7 +276,11 @@ export function GamePage() {
         <Button color="neutral" disabled={!isMyTurn || toCall > 0 || acting} onClick={() => handleAction('check')}>
           CHECK
         </Button>
-        <Button color="primary" disabled={!isMyTurn || toCall <= 0 || acting} onClick={() => handleAction('call')}>
+        <Button
+          color="primary"
+          disabled={!isMyTurn || toCall <= 0 || acting || raiseIsForcedAllIn}
+          onClick={() => handleAction('call')}
+        >
           {toCall > 0 ? `CALL ${toCall}` : 'CALL'}
         </Button>
         <Button
@@ -283,6 +292,7 @@ export function GamePage() {
           onPointerLeave={cancelRaiseHold}
           onPointerCancel={cancelRaiseHold}
           className="relative overflow-hidden"
+          style={holdingRaise || raiseIsForcedAllIn ? { borderColor: '#ec4899', color: '#ec4899' } : undefined}
         >
           <span
             className="absolute inset-0 bg-brand-pink/30"
