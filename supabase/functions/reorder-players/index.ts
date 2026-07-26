@@ -110,7 +110,14 @@ Deno.serve(async (req) => {
     const dealerRow = playerRows.find((p) => p.is_dealer)
     const newDealerPosition = dealerRow ? (newPositionById.get(dealerRow.id) ?? 0) : 0
 
-    const refundedPlayers: GamePlayer[] = playerRows.map((p) => ({
+    // Zbankrutowani gracze zostają przesunięci razem z resztą (faza A/B
+    // wyżej), ale są wykluczeni z samego rozdania — reset ich nie dotyczy.
+    const dealableRows = playerRows.filter((p) => p.status !== 'bankrupt')
+    if (dealableRows.length < 2) {
+      return json({ error: 'Za mało graczy z żetonami, żeby kontynuować rozdanie.' }, 409)
+    }
+
+    const refundedPlayers: GamePlayer[] = dealableRows.map((p) => ({
       id: p.id,
       name: p.name,
       chipTotal: p.chip_total + p.total_invested,

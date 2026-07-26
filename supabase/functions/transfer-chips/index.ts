@@ -62,9 +62,16 @@ Deno.serve(async (req) => {
     }
     if (from.chip_total < amount) return json({ error: 'Ten gracz nie ma tylu żetonów.' }, 400)
 
+    // Zbankrutowany odbiorca wraca do gry, jak tylko dostanie cokolwiek —
+    // realnie bierze udział dopiero w NASTĘPNEJ rozdawanej ręce, bo
+    // rozdawanie i tak dzieje się tylko na starcie ręki, więc ta zmiana
+    // statusu w trakcie trwającej ręki nikogo do niej nie wciąga.
+    const toUpdate: Record<string, number | string> = { chip_total: to.chip_total + amount }
+    if (to.status === 'bankrupt') toUpdate.status = 'active'
+
     const writeResults = await Promise.all([
       supabase.from('players').update({ chip_total: from.chip_total - amount }).eq('id', from.id),
-      supabase.from('players').update({ chip_total: to.chip_total + amount }).eq('id', to.id),
+      supabase.from('players').update(toUpdate).eq('id', to.id),
       supabase.from('actions_log').insert({
         table_id: tableId,
         player_id: from.id,

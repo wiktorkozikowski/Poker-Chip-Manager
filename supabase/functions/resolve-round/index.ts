@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
       return json({ error: 'Nie możesz wykonać akcji za innego gracza.' }, 403)
     }
 
-    const eligible = playerRows.filter((p) => p.status !== 'folded')
+    const eligible = playerRows.filter((p) => p.status !== 'folded' && p.status !== 'bankrupt')
     // Fold-out: jest tylko jeden kandydat, dealer nie musi nic zaznaczać —
     // wymuszamy to po stronie serwera niezależnie od tego, co przyszło od klienta.
     const effectiveWinnerIds = eligible.length === 1 ? [eligible[0].id] : winnerIds
@@ -89,51 +89,86 @@ Deno.serve(async (req) => {
     const payouts = computePotSplit(domainPlayers, table.dealer_position, domainPlayers.length, effectiveWinnerIds)
     const payoutMap = new Map(payouts.map((p) => [p.playerId, p.amount]))
 
-    // Wszyscy wracają do gry na nową rękę (reset fold/all-in), z doliczoną wygraną.
-    const playersForNextHand: GamePlayer[] = domainPlayers.map((p) => ({
+    const withPayouts: GamePlayer[] = domainPlayers.map((p) => ({
       ...p,
       chipTotal: p.chipTotal + (payoutMap.get(p.id) ?? 0),
-      status: 'active',
-      currentRoundBet: 0,
     }))
 
-    const nextHand = computeStartGame(playersForNextHand, table.small_blind, table.big_blind, table.dealer_position)
+    // Gracz z zerem żetonów po wypłacie (albo już wcześniej zbankrutowany i
+    // nic nie wygrał) jest wykluczony z rozdawania — bez D/SB/BB, bez
+    // udziału w licytacji, dopóki ktoś mu nie dorzuci żetonów (transfer-chips).
+    const bankrupt = withPayouts.filter((p) => p.chipTotal <= 0)
+    const dealable = withPayouts
+      .filter((p) => p.chipTotal > 0)
+      .map((p) => ({ ...p, status: 'active' as const, currentRoundBet: 0 }))
 
-    const playerUpdates = nextHand.players.map((p) =>
+    const bankruptUpdates = bankrupt.map((p) =>
       supabase
         .from('players')
         .update({
-          chip_total: p.chipTotal,
-          current_round_bet: p.currentRoundBet,
-          total_invested: p.totalInvested,
-          status: p.status,
-          is_dealer: p.isDealer,
-          is_small_blind: p.isSmallBlind,
-          is_big_blind: p.isBigBlind,
-          last_action: p.lastAction,
+          chip_total: 0,
+          current_round_bet: 0,
+          total_invested: 0,
+          status: 'bankrupt',
+          is_dealer: false,
+          is_small_blind: false,
+          is_big_blind: false,
+          last_action: null,
         })
         .eq('id', p.id),
     )
 
-    const tableUpdate = supabase
-      .from('tables')
-      .update({
-        pot: nextHand.pot,
-        current_bet: nextHand.currentBet,
-        dealer_position: nextHand.dealerPosition,
-        current_turn_position: nextHand.currentTurnPosition,
-        last_raiser_position: nextHand.lastRaiserPosition,
-        current_round: 'preflop',
-        players_to_act: nextHand.playersToAct,
-        showdown_from_round: null,
-      })
-      .eq('id', tableId)
+    let playerUpdates: ReturnType<typeof supabase.from>[]
+    let tableUpdate: ReturnType<typeof supabase.from>
+
+    if (dealable.length >= 2) {
+      const nextHand = computeStartGame(dealable, table.small_blind, table.big_blind, table.dealer_position)
+      playerUpdates = nextHand.players.map((p) =>
+        supabase
+          .from('players')
+          .update({
+            chip_total: p.chipTotal,
+            current_round_bet: p.currentRoundBet,
+            total_invested: p.totalInvested,
+            status: p.status,
+            is_dealer: p.isDealer,
+            is_small_blind: p.isSmallBlind,
+            is_big_blind: p.isBigBlind,
+            last_action: p.lastAction,
+          })
+          .eq('id', p.id),
+      )
+      tableUpdate = supabase
+        .from('tables')
+        .update({
+          pot: nextHand.pot,
+          current_bet: nextHand.currentBet,
+          dealer_position: nextHand.dealerPosition,
+          current_turn_position: nextHand.currentTurnPosition,
+          last_raiser_position: nextHand.lastRaiserPosition,
+          current_round: 'preflop',
+          players_to_act: nextHand.playersToAct,
+          showdown_from_round: null,
+        })
+        .eq('id', tableId)
+    } else {
+      // Za mało graczy z żetonami, żeby rozdać nową rękę (np. w heads-up
+      // jeden zbankrutował) — stół zostaje 'active', ale bez nowego
+      // rozdania, dopóki ktoś nie dorzuci żetonów zbankrutowanemu graczowi.
+      playerUpdates = dealable.map((p) =>
+        supabase.from('players').update({ chip_total: p.chipTotal, current_round_bet: 0 }).eq('id', p.id),
+      )
+      tableUpdate = supabase
+        .from('tables')
+        .update({ pot: 0, current_bet: 0, current_round: 'preflop', players_to_act: 0, showdown_from_round: null })
+        .eq('id', tableId)
+    }
 
     const logInsert = supabase
       .from('actions_log')
       .insert(payouts.map((p) => ({ table_id: tableId, player_id: p.playerId, action_type: 'round_win', amount: p.amount })))
 
-    const writeResults = await Promise.all([...playerUpdates, tableUpdate, logInsert])
+    const writeResults = await Promise.all([...playerUpdates, ...bankruptUpdates, tableUpdate, logInsert])
     const writeError = writeResults.find((r) => r.error)?.error
     if (writeError) return json({ error: writeError.message }, 500)
 

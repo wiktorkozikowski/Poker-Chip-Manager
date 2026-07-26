@@ -56,10 +56,17 @@ Deno.serve(async (req) => {
       return json({ error: 'Nie możesz wykonać akcji za innego gracza.' }, 403)
     }
 
+    // Zbankrutowani gracze są wykluczeni z rozdawania (bez D/SB/BB, nie
+    // grają) — reset ich nie dotyczy, nie mają nic do zwrócenia (total_invested=0).
+    const dealableRows = playerRows.filter((p) => p.status !== 'bankrupt')
+    if (dealableRows.length < 2) {
+      return json({ error: 'Za mało graczy z żetonami, żeby zresetować rozdanie.' }, 409)
+    }
+
     // Zwrot postawionej kasy: każdy dostaje z powrotem dokładnie to, co sam
     // wpłacił w tej ręce (total_invested obejmuje blindy + wszystkie
     // call/raise na wszystkich dotychczasowych ulicach tego rozdania).
-    const refundedPlayers: GamePlayer[] = playerRows.map((p) => ({
+    const refundedPlayers: GamePlayer[] = dealableRows.map((p) => ({
       id: p.id,
       name: p.name,
       chipTotal: p.chip_total + p.total_invested,

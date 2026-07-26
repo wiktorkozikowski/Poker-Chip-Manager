@@ -6,7 +6,7 @@
 
 export type TableStatus = 'lobby' | 'active' | 'finished'
 
-export type PlayerStatus = 'active' | 'folded' | 'all_in'
+export type PlayerStatus = 'active' | 'folded' | 'all_in' | 'bankrupt'
 
 export type LastAction = 'check' | 'call' | 'raise' | 'fold'
 

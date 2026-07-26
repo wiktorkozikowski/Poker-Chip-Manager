@@ -4,7 +4,7 @@
  * o Reacie ani o bazie danych.
  */
 
-export type PlayerStatus = 'active' | 'folded' | 'all_in'
+export type PlayerStatus = 'active' | 'folded' | 'all_in' | 'bankrupt'
 
 export type BettingAction = 'check' | 'call' | 'raise' | 'fold'
 

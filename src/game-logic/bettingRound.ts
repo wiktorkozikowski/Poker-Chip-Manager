@@ -159,7 +159,7 @@ export function applyAction(
 
   const nextState: GameTableState = { ...state, players, pot, currentBet, lastRaiserPosition, playersToAct }
 
-  const inHand = players.filter((p) => p.status !== 'folded')
+  const inHand = players.filter((p) => p.status !== 'folded' && p.status !== 'bankrupt')
   if (inHand.length === 1) {
     return { ...nextState, currentRound: 'showdown', playersToAct: 0 }
   }
@@ -195,7 +195,7 @@ export function removePlayerFromHand(state: GameTableState, playerId: string): G
 
   const nextState: GameTableState = { ...state, players, playersToAct }
 
-  const inHand = players.filter((p) => p.status !== 'folded')
+  const inHand = players.filter((p) => p.status !== 'folded' && p.status !== 'bankrupt')
   if (inHand.length === 1) {
     return { ...nextState, currentRound: 'showdown', playersToAct: 0 }
   }

@@ -46,7 +46,7 @@ export function GamePage() {
   const myPlayer = presentPlayers.find((p) => p.user_id === user?.id)
   const isHost = presentPlayers.find((p) => p.position === 0)?.id === myPlayer?.id
   const isShowdown = table?.current_round === 'showdown'
-  const eligiblePlayers = presentPlayers.filter((p) => p.status !== 'folded')
+  const eligiblePlayers = presentPlayers.filter((p) => p.status !== 'folded' && p.status !== 'bankrupt')
   const isFoldOut = isShowdown && eligiblePlayers.length === 1
 
   // Fold-out (wszyscy poza jednym spasowali): nie ma kogo pytać o wybór
@@ -114,12 +114,13 @@ export function GamePage() {
   const raiseWouldBeAllIn = !cannotFullyCall && myMaxRaise > 0 && myMaxRaise <= table.current_bet + table.big_blind
   const mustGoAllIn = cannotFullyCall || raiseWouldBeAllIn
 
-  // Spasowani gracze spadają na dół listy — łatwiej ogarnąć wzrokiem, kto
-  // jeszcze gra. Sortowanie jest stabilne (ES2019+), więc kolejność w
-  // obrębie "wciąż gra"/"spasował" zostaje po pozycji przy stole. Wraca do
+  // Spasowani i zbankrutowani gracze spadają na dół listy — łatwiej ogarnąć
+  // wzrokiem, kto jeszcze gra. Sortowanie jest stabilne (ES2019+), więc
+  // kolejność w obrębie każdej grupy zostaje po pozycji przy stole. Wraca do
   // normy samo, bo na nowej ręce wszyscy dostają status 'active' na nowo.
+  const sinksToBottom = (status: string) => (status === 'folded' || status === 'bankrupt' ? 1 : 0)
   const displayPlayers = [...presentPlayers].sort(
-    (a, b) => (a.status === 'folded' ? 1 : 0) - (b.status === 'folded' ? 1 : 0),
+    (a, b) => sinksToBottom(a.status) - sinksToBottom(b.status),
   )
 
   async function handleAction(action: 'check' | 'call' | 'fold') {
@@ -207,7 +208,7 @@ export function GamePage() {
               key={player.id}
               className={`flex flex-col gap-1.5 px-4 py-3 first:rounded-t-2xl last:rounded-b-2xl ${
                 isCurrentTurn ? 'border border-brand-green bg-brand-green/10' : ''
-              } ${player.status === 'folded' ? 'opacity-40' : ''}`}
+              } ${player.status === 'folded' || player.status === 'bankrupt' ? 'opacity-40' : ''}`}
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -230,6 +231,11 @@ export function GamePage() {
                 {player.status === 'all_in' && (
                   <span className="whitespace-nowrap rounded-full bg-brand-pink/20 px-2.5 py-1 text-xs font-bold text-brand-pink">
                     ALL-IN
+                  </span>
+                )}
+                {player.status === 'bankrupt' && (
+                  <span className="whitespace-nowrap rounded-full bg-brand-brown/20 px-2.5 py-1 text-xs font-bold text-brand-brown">
+                    BANKRUT
                   </span>
                 )}
                 {player.total_invested > 0 && (

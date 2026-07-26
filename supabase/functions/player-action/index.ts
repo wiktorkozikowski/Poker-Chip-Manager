@@ -64,8 +64,16 @@ Deno.serve(async (req) => {
     if (!actorRow || actorRow.user_id !== callerUserId) {
       return json({ error: 'Nie możesz wykonać akcji za innego gracza.' }, 403)
     }
+    if (actorRow.status === 'bankrupt') {
+      return json({ error: 'Zbankrutowany gracz nie bierze udziału w rozdaniu.' }, 403)
+    }
 
-    const domainPlayers: GamePlayer[] = playerRows.map((p) => ({
+    // Zbankrutowani gracze są wykluczeni z rozdania całkowicie — inaczej
+    // liczyliby się jako "wciąż w grze" przy sprawdzaniu fold-outu
+    // (applyAction filtruje po status !== 'folded', a 'bankrupt' !== 'folded').
+    const domainPlayers: GamePlayer[] = playerRows
+      .filter((p) => p.status !== 'bankrupt')
+      .map((p) => ({
       id: p.id,
       name: p.name,
       chipTotal: p.chip_total,

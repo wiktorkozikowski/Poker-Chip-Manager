@@ -14,7 +14,7 @@ export function ResolveRoundPage() {
   const { resolveRound, loading: resolving, error } = useResolveRound()
 
   const myPlayer = players.find((p) => p.user_id === user?.id)
-  const eligible = players.filter((p) => p.status !== 'folded')
+  const eligible = players.filter((p) => p.status !== 'folded' && p.status !== 'bankrupt')
   const isFoldOut = eligible.length === 1
 
   const [winners, setWinners] = useState<string[]>([])
