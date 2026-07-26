@@ -155,12 +155,12 @@ function MiniCard({ rank, suit }: CardSpec) {
   const isRed = RED_SUITS.includes(suit)
   return (
     <div
-      className={`flex h-14 w-11 shrink-0 flex-col items-center justify-center rounded-lg border border-border bg-surface-2 text-sm font-bold ${
+      className={`flex aspect-[11/14] w-full flex-col items-center justify-center rounded-lg border border-border bg-surface-2 text-[11px] font-bold ${
         isRed ? 'text-brand-red' : 'text-fg'
       }`}
     >
       <span>{rank}</span>
-      <span className="text-base leading-none">{suit}</span>
+      <span className="text-sm leading-none">{suit}</span>
     </div>
   )
 }
@@ -187,7 +187,7 @@ export function HandRankingsPage() {
             <div className="min-w-0 flex-1">
               <p className="text-base font-bold text-fg">{hand.name}</p>
               <p className="mt-0.5 text-sm text-fg-muted">{hand.description}</p>
-              <div className="mt-3 flex gap-1.5 overflow-x-auto">
+              <div className="mt-3 grid grid-cols-5 gap-1.5">
                 {hand.cards.map((card, i) => (
                   <MiniCard key={i} {...card} />
                 ))}
