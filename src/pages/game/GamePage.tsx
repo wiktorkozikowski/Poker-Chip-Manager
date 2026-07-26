@@ -101,11 +101,18 @@ export function GamePage() {
   const currentPlayerName = presentPlayers.find((p) => p.position === table.current_turn_position)?.name
   const onlineCount = presentPlayers.filter((p) => p.user_id && onlineUserIds.has(p.user_id)).length
 
-  // Gdy stos gracza nie sięga pełnego minimalnego podbicia, "raise" i tak
-  // może być tylko all-in (bez wyboru kwoty) — przycisk od razu to pokazuje,
-  // zamiast udawać że jest jeszcze jakaś decyzja do podjęcia.
+  // Gdy jedyną sensowną opcją gracza jest all-in — czy to dlatego, że nie
+  // ma nawet czym wyrównać stawki, czy dlatego, że stać go na wyrównanie,
+  // ale nie na pełne podbicie — CALL się blokuje, a RAISE zamienia się w
+  // różowy przycisk ALL-IN. Pod spodem wysyłana jest wtedy akcja, którą
+  // silnik faktycznie zaakceptuje: 'call' (i tak ogranicza się do
+  // posiadanych żetonów), jeśli gracza nie stać nawet na wyrównanie — bo
+  // 'raise' z maxTotal <= current_bet silnik zawsze odrzuca — a w
+  // przeciwnym razie 'raise' na maksymalną możliwą kwotę.
   const myMaxRaise = myPlayer ? myPlayer.chip_total + myPlayer.current_round_bet : 0
-  const raiseIsForcedAllIn = myMaxRaise > 0 && myMaxRaise <= table.current_bet + table.big_blind
+  const cannotFullyCall = !!myPlayer && toCall > 0 && myPlayer.chip_total <= toCall
+  const raiseWouldBeAllIn = !cannotFullyCall && myMaxRaise > 0 && myMaxRaise <= table.current_bet + table.big_blind
+  const mustGoAllIn = cannotFullyCall || raiseWouldBeAllIn
 
   // Spasowani gracze spadają na dół listy — łatwiej ogarnąć wzrokiem, kto
   // jeszcze gra. Sortowanie jest stabilne (ES2019+), więc kolejność w
@@ -125,8 +132,9 @@ export function GamePage() {
 
   async function handleAllIn() {
     if (!tableId || !myPlayer) return
-    const maxRaise = myPlayer.chip_total + myPlayer.current_round_bet
-    const ok = await sendAction(tableId, myPlayer.id, 'raise', maxRaise)
+    const ok = cannotFullyCall
+      ? await sendAction(tableId, myPlayer.id, 'call')
+      : await sendAction(tableId, myPlayer.id, 'raise', myMaxRaise)
     if (ok) await refetch()
   }
 
@@ -155,7 +163,7 @@ export function GamePage() {
     const wasAllIn = allInTriggeredRef.current
     cancelRaiseHold()
     if (wasAllIn) return
-    if (raiseIsForcedAllIn) {
+    if (mustGoAllIn) {
       // Nie ma czego wybierać na ekranie Raise (min=max i tak) — zwykły tap
       // od razu stawia all-in, bez przytrzymywania.
       handleAllIn()
@@ -278,7 +286,7 @@ export function GamePage() {
         </Button>
         <Button
           color="primary"
-          disabled={!isMyTurn || toCall <= 0 || acting || raiseIsForcedAllIn}
+          disabled={!isMyTurn || toCall <= 0 || acting || mustGoAllIn}
           onClick={() => handleAction('call')}
         >
           {toCall > 0 ? `CALL ${toCall}` : 'CALL'}
@@ -292,7 +300,7 @@ export function GamePage() {
           onPointerLeave={cancelRaiseHold}
           onPointerCancel={cancelRaiseHold}
           className="relative overflow-hidden"
-          style={holdingRaise || raiseIsForcedAllIn ? { borderColor: '#ec4899', color: '#ec4899' } : undefined}
+          style={holdingRaise || mustGoAllIn ? { borderColor: '#ec4899', color: '#ec4899' } : undefined}
         >
           <span
             className="absolute inset-0 bg-brand-pink/30"
@@ -302,9 +310,7 @@ export function GamePage() {
               transition: holdingRaise ? 'transform 3000ms linear' : 'none',
             }}
           />
-          <span className="relative">
-            {holdingRaise ? 'ALL-IN...' : raiseIsForcedAllIn ? 'ALL-IN' : 'RAISE'}
-          </span>
+          <span className="relative">{holdingRaise ? 'ALL-IN...' : mustGoAllIn ? 'ALL-IN' : 'RAISE'}</span>
         </Button>
         <Button color="danger" tone="outline" disabled={!isMyTurn || acting} onClick={() => handleAction('fold')}>
           FOLD
