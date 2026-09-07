@@ -20,7 +20,7 @@ const TABS: TabDefinition[] = [
  */
 export function BottomTabBar() {
   return (
-    <nav className="tab-bar fixed inset-x-0 bottom-0 z-10 flex border-t border-border bg-surface">
+    <nav className="tab-bar fixed bottom-0 left-1/2 z-10 flex w-full max-w-md -translate-x-1/2 border-t border-border bg-surface">
       {TABS.map(({ to, label, icon: Icon }) => (
         <NavLink
           key={to}

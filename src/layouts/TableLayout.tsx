@@ -7,8 +7,10 @@ import { Outlet } from 'react-router-dom'
  */
 export function TableLayout() {
   return (
-    <div className="min-h-svh">
-      <Outlet />
+    <div className="flex min-h-svh justify-center">
+      <div className="w-full max-w-md">
+        <Outlet />
+      </div>
     </div>
   )
 }

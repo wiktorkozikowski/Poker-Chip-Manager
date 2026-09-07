@@ -106,7 +106,22 @@ export function computeStartGame(
   const positions = seats.map((p) => p.position)
   const idx = previousDealerPosition !== null ? positions.indexOf(previousDealerPosition) : -1
 
-  const dealerPosition = idx !== -1 ? positions[(idx + 1) % positions.length] : positions[0]
+  // Trzy przypadki: (1) previousDealerPosition===null — pierwsze rozdanie na
+  // stole, dealer = positions[0] (host). (2) poprzedni dealer wciąż siedzi
+  // przy stole — po prostu następny w kolejce. (3) poprzedni dealer
+  // zbankrutował w rozdaniu, które prowadził (nie ma go już wśród graczy z
+  // żetonami) — szukamy najbliższej WYŻSZEJ pozycji, a nie wracamy zawsze na
+  // positions[0], inaczej przycisk cofałby się do pierwszego miejsca przy
+  // stole zamiast iść dalej po kolejce (ten sam problem co w
+  // nextActivePosition wyżej).
+  let dealerPosition: number
+  if (previousDealerPosition === null) {
+    dealerPosition = positions[0]
+  } else if (idx !== -1) {
+    dealerPosition = positions[(idx + 1) % positions.length]
+  } else {
+    dealerPosition = positions.find((p) => p > previousDealerPosition) ?? positions[0]
+  }
 
   return dealHandAtDealer(players, smallBlind, bigBlind, dealerPosition)
 }
