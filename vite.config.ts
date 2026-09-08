@@ -46,6 +46,12 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
+        // Bez tego nowy Service Worker czeka aż zamkniesz WSZYSTKIE karty
+        // appki, zanim przejmie kontrolę — po kilku deployach pod rząd
+        // przeglądarka potrafi serwować miks starych/nowych plików. Z tym —
+        // nowa wersja wchodzi od razu po zwykłym odświeżeniu strony.
+        skipWaiting: true,
+        clientsClaim: true,
       },
     }),
   ],
