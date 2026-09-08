@@ -26,6 +26,10 @@ const COLOR_CLASSES: Record<Color, Record<Tone, string>> = {
     solid: 'bg-surface-2 text-fg',
     outline: 'border border-border text-fg bg-transparent',
   },
+  pink: {
+    solid: 'bg-brand-pink text-white',
+    outline: 'border border-brand-pink text-brand-pink bg-transparent',
+  },
 }
 
 /**
