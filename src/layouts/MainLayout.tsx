@@ -7,10 +7,12 @@ import { BottomTabBar } from '../components/nav/BottomTabBar'
  */
 export function MainLayout() {
   return (
-    <div className="mx-auto flex min-h-svh w-full max-w-md flex-col pb-16 sm:pb-0 sm:pt-16">
-      <main className="flex-1">
-        <Outlet />
-      </main>
+    <div className="flex min-h-svh justify-center">
+      <div className="flex w-full max-w-md flex-col pb-16 sm:pb-0 sm:pt-16">
+        <main className="flex-1">
+          <Outlet />
+        </main>
+      </div>
       <BottomTabBar />
     </div>
   )

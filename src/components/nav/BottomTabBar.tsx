@@ -41,8 +41,8 @@ export function BottomTabBar() {
         ))}
       </nav>
 
-      <nav className="fixed inset-x-0 top-0 z-10 hidden border-b border-border bg-surface sm:block">
-        <div className="mx-auto flex h-16 max-w-3xl items-center justify-between px-6">
+      <nav className="fixed inset-x-0 top-0 z-10 hidden border-b border-border bg-surface sm:flex sm:justify-center">
+        <div className="flex h-16 w-full max-w-3xl items-center justify-between px-6">
           <span className="font-logo text-lg font-bold tracking-tight text-fg">
             Poker <span className="text-brand-green">Chip</span> Manager
           </span>
