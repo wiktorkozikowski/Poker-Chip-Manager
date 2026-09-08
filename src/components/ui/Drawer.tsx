@@ -21,7 +21,7 @@ export function Drawer({ open, onClose, children }: DrawerProps) {
         onClick={onClose}
       />
       <div
-        className={`fixed inset-y-0 left-[max(0px,calc(50%-14rem))] z-30 w-64 max-w-[80vw] border-r border-border bg-surface p-4 transition-transform duration-200 ${
+        className={`fixed inset-y-0 left-0 z-30 w-64 max-w-[80vw] border-r border-border bg-surface p-4 transition-transform duration-200 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
